@@ -10,7 +10,7 @@
 <style>
 :root{
   --bg:#EEF1EE; --surface:#FFFFFF; --sunk:#E3E9E7; --line:#C6D1CF; --text:#13303A; --muted:#5A6F72;
-  --water:#1C7C83; --water-soft:#CBE7E8; --sand:#9A6B12; --sand-soft:#F1E3C4; --blood:#B23A28; --blood-soft:#F4D6D0; --ok:#2E7D4F;
+  --water:#1C7C83; --water-soft:#CBE7E8; --sand:#9A6B12; --sand-soft:#F1E3C4; --blood:#B23A28; --blood-soft:#F4D6D0; --ok:#2E7D4F; --will:#5B4B8A; --will-soft:#E3DEF1;
   --display:"Jura","Trebuchet MS",system-ui,sans-serif; --body:"Golos Text","Segoe UI",system-ui,sans-serif;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
   color-scheme:light;
@@ -18,13 +18,13 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#0E2229; --surface:#15313A; --sunk:#10282F; --line:#2B4B54; --text:#E7E2D4; --muted:#93A7A6;
-    --water:#6CC7C9; --water-soft:#1D4A50; --sand:#D9B46A; --sand-soft:#473B22; --blood:#E06A55; --blood-soft:#4A2521; --ok:#7BCB93;
+    --water:#6CC7C9; --water-soft:#1D4A50; --sand:#D9B46A; --sand-soft:#473B22; --blood:#E06A55; --blood-soft:#4A2521; --ok:#7BCB93; --will:#B4A3E8; --will-soft:#2F2A4A;
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#0E2229; --surface:#15313A; --sunk:#10282F; --line:#2B4B54; --text:#E7E2D4; --muted:#93A7A6;
-  --water:#6CC7C9; --water-soft:#1D4A50; --sand:#D9B46A; --sand-soft:#473B22; --blood:#E06A55; --blood-soft:#4A2521; --ok:#7BCB93;
+  --water:#6CC7C9; --water-soft:#1D4A50; --sand:#D9B46A; --sand-soft:#473B22; --blood:#E06A55; --blood-soft:#4A2521; --ok:#7BCB93; --will:#B4A3E8; --will-soft:#2F2A4A;
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:inherit}
@@ -76,6 +76,10 @@ label.fl{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
 .cell.ob{border-color:var(--sand);background:var(--sand)}
 .cell.ob.lost{background:transparent}
 .gap{width:10px}
+.cell.nk{width:16px;height:24px;border-color:var(--will);background:var(--will)}
+.cell.nk.lost{background:transparent}
+.fallen{background:var(--will-soft);color:var(--will);border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:10px}
+.fallen b{display:block;font-size:15px;margin-bottom:2px}
 .wpip{border:2px solid var(--blood);border-radius:50%;background:transparent;display:inline-grid;place-items:center;color:var(--blood);font:700 12px var(--display);padding:0}
 .wpip.on{background:var(--blood);color:var(--bg)}
 .w1{width:30px;height:30px}.w2{width:36px;height:36px}.w3{width:44px;height:44px}
@@ -199,7 +203,7 @@ const SKILLS=[
  {k:'sho',n:'Стрельба',g:'Тело и бой',h:'Дальний бой, метание, баллистика.'},
  {k:'prs',n:'Убеждение',g:'Люди',h:'Красноречие, аргументы, торг.'},
  {k:'prv',n:'Провокация',g:'Люди',h:'Задеть, подорвать авторитет, угрожать.'},
- {k:'wil',n:'Воля',g:'Люди',h:'Сопротивление давлению и ужасу. +1 Очко Воли за очко.'},
+ {k:'wil',n:'Воля',g:'Люди',h:'Сопротивление давлению и ужасу. Очки воли: Непоколебимость = (Равновесие + Воля) × 2.'},
  {k:'emp',n:'Эмпатия',g:'Люди',h:'Понять чувства и мотивы, распознать ложь.'},
  {k:'tec',n:'Технологии',g:'Знания',h:'Создать, починить, разобрать механизм.'},
  {k:'hak',n:'Хакерство',g:'Знания',h:'Проникнуть в сеть, добыть данные, послать сигнал.'},
@@ -226,7 +230,8 @@ function newChar(){
   id:uid(),name:'Новый агент',player:'',concept:'',creation:true,
   skills:Object.fromEntries(SKILLS.map(s=>[s.k,0])),pro:[],bonuses:[],
   hpLost:0,armorLost:0,wounds:[false,false,false],dead:false,mortalMin:null,
-  balance:10,tokens:2,willUsed:0,position:'stand',water:0,
+  balance:10,tokens:2,position:'stand',water:0,
+  resolve:{on:false,max:0,lost:0,over:0},
   items:[
    newItem({name:'Пистолет скрытого ношения',notes:'9×19 мм. Не обнаруживается металлоискателем, выстрел не громче хлопка в ладоши.',dmg:3,ammoMax:4,ammo:4,range:'Средняя'}),
    newItem({name:'Бронеткань скрытого ношения',ob:4,pz:1})
@@ -245,6 +250,7 @@ function normalize(c){ // fill fields missing in older saves
  c.beliefs=Object.assign(d.beliefs,c.beliefs||{});
  c.device=Object.assign(d.device,c.device||{});
  c.dossier=Object.assign(d.dossier,c.dossier||{});
+ c.resolve=Object.assign(d.resolve,c.resolve||{});
  return c;
 }
 
@@ -264,14 +270,15 @@ function D(c){
  const pzRanged=pzBase+(pos==='lie'?2:0);
  return {hpMax,obMax,hp,ob,load,cap,over,overPen,woundPen,su:sum('su'),
   pz:pzBase,pzMelee,pzRanged,speed:Math.max(0,6-over-posMove),init:skillTotal(c,'agi'),
-  willMax:Math.max(0,skillTotal(c,'wil')),used:SKILLS.reduce((a,s)=>a+(c.skills[s.k]||0),0)};
+  resolveStart:Math.max(0,(c.balance+skillTotal(c,'wil'))*2),
+  resolve:Math.max(0,c.resolve.max-c.resolve.lost),used:SKILLS.reduce((a,s)=>a+(c.skills[s.k]||0),0)};
 }
 const balText=b=>b>=9?'Поступает рационально':b>=6?'Лёгкое напряжение':b>=3?'Подвержен эмоциям':b>=1?'На грани срыва':'Показывает настоящее лицо';
 const repText=v=>v>=10?'Полное доверие':v>=6?'Союзники':v>=3?'Партнёры':v>-3?'Безразличие':v>-6?'Противники':v>-10?'Вражда':'Абсолютная вражда';
 const fameText=v=>v>=10?'Главная фигура города':v>=8?'Город следит за каждым шагом':v>=5?'Вы на слуху':v>=3?'Некоторые следят за вами':v>=1?'Почти незаметны':'О вас не вспоминают';
 
 /* ---------- state & storage ---------- */
-let chars={}, cur=null, tab='agent', ui={dmg:1,edit:null}, dirty=false;
+let chars={}, cur=null, tab='agent', ui={dmg:1,rdmg:1,edit:null}, dirty=false;
 let db=null, col=null, mode='local', writing=false, pending=false, saveTimer=null, readOnly=false;
 const LS='tvarikoni.v1';
 function lsLoad(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o&&o.chars){chars=o.chars;cur=o.cur}}catch(e){}}
@@ -395,10 +402,12 @@ function vAgent(c,d){
   </div>
  </section>
 
+ ${vResolve(c,d)}
+
  <section class="blk card">
   <div class="row"><b>Жетоны профессионализма</b><span class="spacer"></span>${toks}</div>
   <div class="small muted" style="margin:4px 0 8px">${c.pro.length?'Профессиональные: '+c.pro.map(k=>SK[k].n).join(', '):'Отметьте два профессиональных навыка во вкладке «Навыки».'}</div>
-  <div class="row"><button class="btn sm" data-act="tok-use" ${c.tokens<1?'disabled':''}>Потратить</button><button class="btn sm" data-act="new-day">Новый день: 2 жетона</button><span class="spacer"></span>${d.willMax?`<span class="small">Очки Воли</span> ${stepper('will',d.willMax-c.willUsed,'',0,d.willMax)}`:''}</div>
+  <div class="row"><button class="btn sm" data-act="tok-use" ${c.tokens<1?'disabled':''}>Потратить</button><button class="btn sm" data-act="new-day">Новый день: 2 жетона</button></div>
  </section>
 
  <section class="blk">
@@ -422,6 +431,44 @@ function vAgent(c,d){
  </section>`;
 }
 
+function vResolve(c,d){
+ const r=c.resolve, wil=skillTotal(c,'wil');
+ const chk=`<button class="btn sm" data-act="roll-open" data-k="wil">Проверка Воли</button>`;
+ if(!r.on) return `
+ <section class="blk card">
+  <div class="trackhead">
+   <div><span class="big" style="color:var(--will)">${d.resolveStart}</span><div class="lbl">Непоколебимость (очки воли)</div></div>
+   <div class="small muted">(Равновесие ${c.balance} + Воля ${wil}) × 2</div>
+  </div>
+  <div class="row" style="margin-top:10px">
+   <button class="btn pri" data-act="res-start">Начать столкновение</button>${chk}
+  </div>
+  <p class="hint">Очки воли набираются в начале социального столкновения: дебатов, выступления, спора. Провокация и давление оппонентов снимают их.</p>
+ </section>`;
+ let cells=''; for(let i=0;i<r.max;i++) cells+=`<i class="cell nk ${i<d.resolve?'':'lost'}"></i>`;
+ return `
+ <section class="blk card">
+  <div class="trackhead">
+   <div><span class="big" style="color:var(--will)">${d.resolve}</span><span class="muted">/${r.max}</span><div class="lbl">Непоколебимость (очки воли)</div></div>
+   <span class="spacer"></span><button class="btn sm ghost" data-act="res-end" data-confirm>Завершить</button>
+  </div>
+  ${r.max?`<div class="track">${cells}</div>`:'<div style="height:10px"></div>'}
+  ${d.resolve?'':`<div class="fallen"><b>Эмоции взяли верх</b>Агент ошибается, показывает эмоции, не находит ответа или говорит глупость. Дальнейшие выпады бьют по Равновесию, но насколько его снизить, решаете только вы.${r.over?`<div class="row" style="margin-top:8px"><span>Урон после падения: <b style="display:inline">${r.over}</b></span><span class="spacer"></span><span class="small">Равновесие</span>${stepper('bal',c.balance,'',0,10)}</div>`:''}</div>`}
+  <div class="row">
+   ${stepper('rdmg',ui.rdmg,'',1,60)}
+   <button class="btn pri" data-act="res-take">Выпад по мне</button>${chk}
+  </div>
+  <p class="hint">Урон = Сила подхода (1–20, назначает мастер) + Сила исполнения. Против Провокации сила исполнения — разница между её проверкой и вашей проверкой Воли.</p>
+ </section>`;
+}
+function resolveHit(c,n){
+ const r=c.resolve, left=Math.max(0,r.max-r.lost), a=Math.min(n,left), rest=n-a;
+ r.lost+=a; r.over+=rest;
+ const msg=[`Выпад ${n}`]; if(a) msg.push(`−${a} непоколебимости`);
+ if(a&&a===left) msg.push('эмоции взяли верх');
+ if(rest) msg.push(`${rest} по равновесию — решает игрок`);
+ log(msg.join(', '));
+}
 function vSkills(c,d){
  const left=BUDGET-d.used, groups=[...new Set(SKILLS.map(s=>s.g))];
  return `
@@ -705,7 +752,10 @@ function act(a,ds,el){
   case 'wound': c.wounds[i]=!c.wounds[i]; if(!c.wounds[2]) c.mortalMin=null; else if(i===2&&c.mortalMin==null){c.mortalMin=40+10*(rnd(6)+rnd(6))} log(`${WOUNDS[i].n} ранение ${c.wounds[i]?'отмечено':'вылечено'}`); break;
   case 'revive': c.dead=false; log('Смерть отменена'); break;
   case 'bal': c.balance=clamp(c.balance+n,0,10); log(`Равновесие: ${c.balance}`); break;
-  case 'will': c.willUsed=clamp(c.willUsed-n,0,d.willMax); break;
+  case 'res-start': c.resolve={on:true,max:d.resolveStart,lost:0,over:0}; log(`Социальное столкновение: непоколебимость ${d.resolveStart}`); break;
+  case 'res-end': c.resolve={on:false,max:0,lost:0,over:0}; log('Столкновение завершено'); break;
+  case 'rdmg': ui.rdmg=clamp(ui.rdmg+n,1,60); sv=false; break;
+  case 'res-take': resolveHit(c,ui.rdmg); break;
   case 'tok-use': c.tokens=Math.max(0,c.tokens-1); log('Потрачен жетон профессионализма'); break;
   case 'new-day': c.tokens=2; log('Новый день: 2 жетона'); break;
   case 'pos': c.position=ds.v; break;
