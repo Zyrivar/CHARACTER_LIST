@@ -176,6 +176,15 @@ label.fl{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
 .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
 .empty{color:var(--muted);font-size:14px;padding:6px 0}
 @media (max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}.cell{width:18px;height:26px}}
+.cell.sq{width:14px;height:22px}
+.cell.thr{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--blood)}
+.gonecard{opacity:.62}
+.facgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ftab{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.ftab td{padding:5px 4px;border-top:1px solid var(--line);vertical-align:top}
+.ctl{font-size:13px;margin:8px 0 10px;padding:8px 10px;border-radius:10px;background:var(--sunk);color:var(--muted)}
+.ctl.on{background:var(--water-soft);color:var(--text);font-weight:600}
+details summary{cursor:pointer;color:var(--muted)}
 .wrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:2px 0 12px}
 .wrow .wl{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--muted)}
 </style>
@@ -213,7 +222,7 @@ const SKILLS=[
 const SK=Object.fromEntries(SKILLS.map(s=>[s.k,s]));
 const BUDGET=30, SKILL_CAP=6;
 const WOUNDS=[{n:'Слабое',pen:-1,dc:10},{n:'Серьёзное',pen:-2,dc:15},{n:'Смертельное',pen:-4,dc:20}];
-const TABS=[['agent','Агент'],['skills','Навыки'],['beliefs','Убеждения'],['gear','Снаряжение'],['dossier','Досье']];
+const TABS=[['agent','Агент'],['skills','Навыки'],['beliefs','Убеждения'],['gear','Снаряжение'],['army','Войска'],['dossier','Досье']];
 const SECRETS=['Какие кошмары мне снятся по ночам?','Остались ли у меня хоть какие-то пристрастия?','Каким я вижу своё будущее?','Какие люди мне нравятся?','Какие события сильнее всего ударили по мне?','Что я скрываю и что рискую показать, когда равновесие достигнет 0?'];
 
 /* ---------- helpers ---------- */
@@ -239,7 +248,7 @@ function newChar(){
   abilities:[],
   beliefs:{personal:[{text:'',ability:''},{text:'',ability:''},{text:'',ability:''}],professional:[{text:'',reward:'',renounced:false},{text:'',reward:'',renounced:false},{text:'',reward:'',renounced:false}],acquired:[],imposed:[]},
   device:{on:false,name:'',powerMax:0,powerUsed:0,anonMax:0,anonUsed:0,djinns:[]},
-  rep:[],fame:1,hope:50,
+  rep:[],fame:1,hope:50,army:newArmy(),
   dossier:{self:'',backstory:'',secrets:SECRETS.map(()=>'')},
   log:[],updated:Date.now()
  };
@@ -251,6 +260,9 @@ function normalize(c){ // fill fields missing in older saves
  c.device=Object.assign(d.device,c.device||{});
  c.dossier=Object.assign(d.dossier,c.dossier||{});
  c.resolve=Object.assign(d.resolve,c.resolve||{});
+ c.army=Object.assign(d.army,c.army||{});
+ c.army.faction=Object.assign(newArmy().faction,c.army.faction);
+ c.army.battle=Object.assign(newArmy().battle,c.army.battle);
  return c;
 }
 
@@ -278,10 +290,10 @@ const repText=v=>v>=10?'Полное доверие':v>=6?'Союзники':v>=
 const fameText=v=>v>=10?'Главная фигура города':v>=8?'Город следит за каждым шагом':v>=5?'Вы на слуху':v>=3?'Некоторые следят за вами':v>=1?'Почти незаметны':'О вас не вспоминают';
 
 /* ---------- state & storage ---------- */
-let chars={}, cur=null, tab='agent', ui={dmg:1,rdmg:1,edit:null}, dirty=false;
+let chars={}, cur=null, tab='agent', ui={dmg:1,rdmg:1,edit:null,av:'squads',sqEdit:null,sqDmg:{},atk:null,atkDef:0,atkMelee:true,raze:null,F:null}, dirty=false;
 let db=null, col=null, mode='local', writing=false, pending=false, saveTimer=null, readOnly=false;
 const LS='tvarikoni.v1';
-function lsLoad(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o&&o.chars){chars=o.chars;cur=o.cur}}catch(e){}}
+function lsLoad(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o&&o.chars){chars=o.chars;for(const id in chars) normalize(chars[id]);cur=o.cur}}catch(e){}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify({chars,cur}))}catch(e){}}
 function C(){return chars[cur]}
 function setSync(t,warn){const s=document.getElementById('sync');s.textContent=t;s.classList.toggle('warn',!!warn)}
@@ -346,7 +358,7 @@ function render(){
  sel.innerHTML=Object.values(chars).sort((a,b)=>a.name.localeCompare(b.name,'ru')).map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(x.name||'Без имени')}</option>`).join('')+'<option value="__new">+ Новый агент</option>';
  document.getElementById('tabs').innerHTML=TABS.map(([k,n])=>`<button role="tab" aria-selected="${tab===k}" data-act="tab" data-v="${k}">${n}</button>`).join('');
  const d=D(c);
- document.getElementById('main').innerHTML=({agent:vAgent,skills:vSkills,beliefs:vBeliefs,gear:vGear,dossier:vDossier}[tab])(c,d);
+ document.getElementById('main').innerHTML=({agent:vAgent,skills:vSkills,beliefs:vBeliefs,gear:vGear,army:vArmy,dossier:vDossier}[tab])(c,d);
  if(R.open) renderSheet();
 }
 function stepper(act,val,data,min,max){
@@ -640,6 +652,341 @@ function vDossier(c){
  </section>`;
 }
 
+/* ---------- troops ---------- */
+const SQ_TACTICS=[['','Без тактики',''],['rush','Ускорение','+2 зоны передвижения, атаковать нельзя.'],['boost','Усиление','+2 к урону в ближнем бою, но +1 к получаемому урону.'],['rest','Перевести дух','Отряд не действует. Если его не атаковали — +2 здоровья. Раз за сражение.'],['def','Оборона','+1 к Защите, −1 к Силе.']];
+const SQ_STATS=[['power','Сила'],['def','Защита'],['range','Дальность'],['move','Передвижение'],['init','Инициатива']];
+const TR_ACTIONS=[['attack','Атака','Сражение за соседний узел силы.'],['defend','Оборона','+4 к потенциалу защиты до конца дня.'],['fort','Укрепление позиции','+2 к защите всех союзных войск в узле. Одно на узел.'],['heal','Восполнение сил','+3 здоровья.'],['raid','Партизанский удар','Урон противнику без полноценного боя.'],['raze','Разрушение укреплений','Снять укрепление в соседнем узле.'],['loot','Мародёрство','−1 благополучия района, без обеспечения.']];
+const TR_SPECIAL=[['','Без особого манёвра'],['last','Бой до последней капли крови'],['suicide','Суицидальная атака'],['aggr','Агрессивная атака']];
+const ACT_NAME=Object.fromEntries([...TR_ACTIONS.map(a=>[a[0],a[1]]),['aggr','Агрессивная атака']]);
+function newArmy(){return {squads:[],battle:{on:false,round:1,side:'attack',enemy:0},
+ faction:{atk:0,def:0,dmg:3,hp:10,disc:5,discWin:1,discLoss:1,costLast:1,costSuicide:1,costAggr:1},armies:[],districts:[],day:1}}
+function newSquad(){return {id:uid(),name:'Новый отряд',base:'',notes:'',range:1,power:3,init:0,hpMax:10,hp:10,move:1,speed:0,def:1,
+ tactic:'',acted:false,attacked:false,restUsed:false,lost:false,high:false,rough:false,fort:false,mods:[],tactics:[],mergeWith:''}}
+function newTroop(A){return {id:uid(),name:`Войско ${A.armies.length+1}`,node:'',hp:+A.faction.hp,disc:+A.faction.disc,action:'',last:false,status:'',razeTo:'',retreatTo:''}}
+function newNode(){return {id:uid(),name:'Узел силы',ours:false,fort:false}}
+function newDistrict(){return {id:uid(),name:'Новый район',ready:1,welfare:5,nodes:[newNode(),newNode()]}}
+function nodeOf(A,id){for(const d of A.districts){const n=d.nodes.find(x=>x.id===id);if(n) return {n,d}}return null}
+function nodeOpts(A,sel,pred,none){return `<option value="">${none||'— узел силы —'}</option>`+A.districts.map(d=>`<optgroup label="${esc(d.name)}">${d.nodes.filter(n=>!pred||pred(n)).map(n=>`<option value="${n.id}" ${sel===n.id?'selected':''}>${esc(n.name)}${n.ours?' · наш':''}${n.fort?' · укреплён':''}</option>`).join('')}</optgroup>`).join('')}
+const welfText=w=>w<=2?'сложность политического захвата −4':w<=4?'сложность политического захвата −2':w<=6?'без дополнительных эффектов':w<=8?'сложность политического захвата +2':'сложность политического захвата +4';
+
+function SQ(s){ // squad derived stats
+ const m=k=>s.mods.filter(x=>x.stat===k).reduce((a,x)=>a+(+x.delta||0),0);
+ const t=s.tactic, ct=t&&t[0]==='c'?s.tactics[+t.slice(1)]:null, tv=k=>ct?(+ct[k]||0):0;
+ const half=Math.floor(s.hpMax/2), gone=s.hp<=0;
+ const losses=gone?0:(s.hp<half?1:0)+(s.hp<=2?1:0);
+ const lf=v=>v<=1?v:Math.max(1,v-losses);
+ const rangeRaw=+s.range+m('range')+tv('range'), ranged=+s.range>1;
+ return {half,gone,losses,ranged,
+  power:lf(+s.power+m('power')+tv('power')-(t==='def'?1:0)),
+  def:lf(+s.def+m('def')+tv('def')+(t==='def'?1:0)+(s.fort?1:0)),
+  range:rangeRaw+(s.high&&ranged?1:0),
+  move:Math.max(0,Math.max(+s.move,+s.move+(+s.speed||0))+m('move')+tv('move')+(t==='rush'?2:0)-(s.rough?1:0)),
+  init:+s.init+m('init'),
+  melee:t==='boost'?2:0, extra:t==='boost'?1:0,
+  canAttack:!gone&&t!=='rush'&&t!=='rest'};
+}
+function TR(A,t){ // army derived stats
+ const f=A.faction, nd=nodeOf(A,t.node), dis=t.disc<=0;
+ const ready=nd?Math.max(0,(+nd.d.ready||1)-1):0, fort=nd&&nd.n.ours&&nd.n.fort?2:0;
+ const gone=t.status==='captured'||t.status==='destroyed';
+ return {atk:+f.atk+ready+(dis?-4:0),def:+f.def+(t.action==='defend'?4:0)+fort+(dis?-4:0),dmg:+f.dmg,hpMax:+f.hp,dis,ready,fort,nd,gone,
+  down:t.hp<=0&&!t.last,free:!gone&&!dis&&!t.action&&t.status!=='retreat'&&(t.hp>0||t.last)};
+}
+
+function vArmy(c){
+ const A=c.army, v=ui.av||'squads';
+ return `<section class="blk"><span class="seg" style="display:flex">${[['squads','Отряды'],['troops','Войска'],['districts','Районы']].map(([k,n])=>`<button style="flex:1" data-act="av" data-v="${k}" aria-pressed="${v===k}">${n}</button>`).join('')}</span></section>`
+  +({squads:vSquads,troops:vTroops,districts:vDistricts}[v])(c,A);
+}
+
+function vSquads(c,A){
+ const B=A.battle, field=A.squads.filter(s=>s.hp>0), acted=field.filter(s=>s.acted).length;
+ const first=B.side==='attack'?'Вы нападаете — ваш отряд действует первым.':B.side==='defend'?'Противник нападает — он действует первым.':
+  field.length<B.enemy?'Нападающего не определить: у вас меньше отрядов, вы действуете первым.':field.length>B.enemy?'Нападающего не определить: у противника меньше отрядов, он действует первым.':'Отрядов поровну — первого определяет мастер.';
+ return `
+ <section class="blk card">
+  ${B.on?`<div class="row"><h2 style="margin:0">Сражение · ход ${B.round}</h2><span class="spacer"></span><button class="btn sm ghost" data-act="b-end" data-confirm>Завершить</button></div>
+   <div class="row" style="margin-top:10px"><span class="seg">${[['attack','Нападаем'],['defend','Обороняемся'],['none','Не ясно']].map(([k,n])=>`<button data-act="b-side" data-v="${k}" aria-pressed="${B.side===k}">${n}</button>`).join('')}</span></div>
+   <div class="row" style="margin-top:8px"><span class="small muted">Отрядов противника на поле</span><span class="spacer"></span>${stepper('b-enemy',B.enemy,'',0,99)}</div>
+   <p class="small" style="margin:10px 0">${first} Дальше стороны по очереди действуют одним отрядом, пока не подействуют все.</p>
+   <div class="row"><span class="small muted">Подействовали: ${acted} из ${field.length}</span><span class="spacer"></span><button class="btn pri" data-act="b-next">Следующий ход</button></div>
+   <p class="hint">«Следующий ход» восстановит 2 здоровья тем, кто переводил дух и не был атакован, и снимет выбранные тактики.</p>`
+  :`<div class="row"><h2 style="margin:0">Отряды</h2><span class="spacer"></span><button class="btn pri" data-act="b-start" ${field.length?'':'disabled'}>Начать сражение</button></div>
+   <p class="hint">Отряд — 12 человек. Характеристики задаются снаряжением и боевым опытом: нажмите «Изменить» у отряда.</p>`}
+ </section>
+ ${A.squads.map(s=>sqCard(A,s)).join('')}
+ <section class="blk"><button class="btn" data-act="sq-add">Добавить отряд</button></section>`;
+}
+function sqCard(A,s){
+ const q=SQ(s), B=A.battle, ed=ui.sqEdit===s.id, dmgN=ui.sqDmg[s.id]||1;
+ const tinfo=s.tactic&&s.tactic[0]==='c'?(s.tactics[+s.tactic.slice(1)]||{}).text:(SQ_TACTICS.find(t=>t[0]===s.tactic)||['','',''])[2];
+ const badges=[];
+ if(q.gone) badges.push('<span class="pen">Покинул поле боя</span>');
+ if(q.losses) badges.push(`<span class="pen">Потери: −${q.losses} к Силе и Защите</span>`);
+ if(s.lost) badges.push('<span class="pen sand">Вне контроля</span>');
+ if(B.on&&s.acted&&!q.gone) badges.push('<span class="chip">Подействовал</span>');
+ const stat=(n,v,base)=>`<div class="stat"><b>${v}</b><small>${n}${base!=null&&base!==v?` · база ${base}`:''}</small></div>`;
+ const sw=(f,n)=>`<span class="row" style="gap:6px"><button class="sw" data-act="sq-flag" data-id="${s.id}" data-f="${f}" aria-pressed="${!!s[f]}" aria-label="${n}"></button><span class="small">${n}</span></span>`;
+ const mates=A.squads.filter(x=>x.id!==s.id&&x.hp>0&&SQ(x).losses);
+ let cells=''; for(let i=0;i<s.hpMax;i++) cells+=`<i class="cell sq ${i<s.hp?'':'lost'} ${i+1===q.half?'thr':''}"></i>`;
+ return `
+ <section class="blk card ${q.gone?'gonecard':''}">
+  <div class="row"><b style="font-size:16px">${esc(s.name)}</b>${s.base?`<span class="small muted">· ${esc(s.base)}</span>`:''}<span class="spacer"></span><button class="btn sm ghost" data-act="sq-edit" data-id="${s.id}">${ed?'Готово':'Изменить'}</button></div>
+  ${badges.length?`<div class="row" style="margin-top:6px">${badges.join('')}</div>`:''}
+  <div class="track" style="margin-top:10px">${cells}</div>
+  <div class="stats">
+   ${stat('Сила',q.power,+s.power)}${stat('Защита',q.def,+s.def)}${stat('Здоровье',`${Math.max(0,s.hp)}/${s.hpMax}`)}
+   ${stat('Дальность',q.range,+s.range)}${stat('Передвижение',q.move,+s.move)}${stat('Инициатива',q.init,+s.init)}
+  </div>
+  ${B.on&&!q.gone?`<label class="fl">Тактика на этот ход${s.acted?' — зафиксирована':''}</label>
+   <select class="f" data-bind="army.squads.#${s.id}.tactic" data-rerender ${s.acted?'disabled':''}>
+    ${SQ_TACTICS.map(([k,n])=>`<option value="${k}" ${s.tactic===k?'selected':''} ${k==='rest'&&s.restUsed?'disabled':''}>${n}${k==='rest'&&s.restUsed?' (уже использована)':''}</option>`).join('')}
+    ${s.tactics.map((t,i)=>`<option value="c${i}" ${s.tactic==='c'+i?'selected':''}>${esc(t.name||'Тактика '+(i+1))}</option>`).join('')}
+   </select>${tinfo?`<div class="hint">${esc(tinfo)}</div>`:''}`:''}
+  ${!q.gone?`<div class="row" style="margin-top:10px">
+   <button class="btn sm" data-act="sq-atk" data-id="${s.id}" ${!q.canAttack||(B.on&&s.acted)?'disabled':''}>Атаковать</button>
+   ${B.on?`<button class="btn sm" data-act="sq-acted" data-id="${s.id}">${s.acted?'Снять отметку':'Подействовал'}</button>`:''}
+  </div>
+  ${ui.atk===s.id?`<div class="res" style="margin-top:8px">
+   <div class="row"><span class="small">Защита цели</span>${stepper('atk-def',ui.atkDef,'',0,20)}<span class="spacer"></span>${q.melee?`<span class="row" style="gap:6px"><button class="sw" data-act="atk-melee" aria-pressed="${ui.atkMelee}" aria-label="Ближний бой"></button><span class="small">Ближний бой</span></span>`:''}</div>
+   <div class="row" style="margin-top:8px"><span>Урон: <b>${Math.max(0,q.power+(ui.atkMelee?q.melee:0)-ui.atkDef)}</b> <span class="small muted">= Сила ${q.power}${ui.atkMelee&&q.melee?' + 2 (Усиление)':''} − Защита ${ui.atkDef}</span></span><span class="spacer"></span><button class="btn pri sm" data-act="sq-strike" data-id="${s.id}">Нанести</button></div>
+  </div>`:''}`:''}
+  <div class="row" style="margin-top:10px">
+   ${stepper('sq-dmgn',dmgN,`data-id="${s.id}"`,1,50)}
+   <button class="btn sm" data-act="sq-hit" data-id="${s.id}" ${q.gone?'disabled':''}>Урон по отряду</button>
+   <button class="btn sm" data-act="sq-heal" data-id="${s.id}" ${s.hp>=s.hpMax?'disabled':''}>+1 здоровья</button>
+  </div>
+  <p class="hint">Защита ${q.def} гасит урон${q.extra?', Усиление добавляет 1':''}. Потери: при здоровье ниже ${q.half} и при 2 и ниже; уходят, когда здоровье восстановится.</p>
+  <div class="row" style="margin-top:6px;gap:14px">${sw('high','Высота')}${sw('rough','Труднопроходимая')}${sw('fort','Укрепления')}</div>
+  <div class="row" style="margin-top:8px">${sw('lost','Вне контроля')}${s.lost?`<span class="spacer"></span><button class="btn sm" data-act="roll-open" data-k="prs">Убеждение</button><button class="btn sm" data-act="roll-open" data-k="prv">Провокация</button>`:''}</div>
+  ${s.lost?'<p class="hint">Отряд может отступить, ослушаться или перейти к противнику. Вернуть контроль — проверкой в начале тактического этапа.</p>':''}
+  ${q.losses&&mates.length?`<div class="row" style="margin-top:8px"><select class="f" style="flex:1;min-width:150px" data-bind="army.squads.#${s.id}.mergeWith" data-rerender><option value="">— объединить с —</option>${mates.map(m=>`<option value="${m.id}" ${s.mergeWith===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select><button class="btn sm" data-act="sq-merge" data-id="${s.id}" ${s.mergeWith?'':'disabled'} data-confirm>Объединить</button></div>`:''}
+  ${s.notes&&!ed?`<div class="small muted" style="margin-top:8px">${esc(s.notes)}</div>`:''}
+  ${ed?sqEdit(s):''}
+ </section>`;
+}
+function sqEdit(s){
+ const p=`army.squads.#${s.id}`;
+ return `<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:4px">
+  <label class="fl">Название</label><input class="f" data-bind="${p}.name" value="${esc(s.name)}">
+  <label class="fl">База</label><input class="f" data-bind="${p}.base" value="${esc(s.base)}" placeholder="Где размещён отряд">
+  <h3>Базовые характеристики (снаряжение и опыт)</h3>
+  <div class="grid2">${[['power','Сила'],['def','Защита'],['hpMax','Здоровье'],['range','Дальность'],['move','Передвижение'],['speed','Скорость'],['init','Инициатива']].map(([f,n])=>`<label>${n}<input class="f" type="number" inputmode="numeric" data-num data-bind="${p}.${f}" data-rerender value="${+s[f]||0}"></label>`).join('')}</div>
+  <p class="hint">Дальность больше 1 — дальнобойный отряд (для бонуса высоты). Скорость прибавляется к Передвижению, но не опускает его ниже базового.</p>
+  <h3>Бонусы: опыт, трофейное оружие, воодушевление</h3>
+  ${s.mods.map((m,i)=>`<div class="row" style="margin-bottom:6px"><input class="f" style="flex:2;min-width:120px" data-bind="${p}.mods.${i}.src" value="${esc(m.src)}" placeholder="Источник"><select class="f" style="flex:1;min-width:110px" data-bind="${p}.mods.${i}.stat" data-rerender>${SQ_STATS.map(([k,n])=>`<option value="${k}" ${m.stat===k?'selected':''}>${n}</option>`).join('')}</select><input class="f num" type="number" data-num data-bind="${p}.mods.${i}.delta" data-rerender value="${+m.delta||0}"><button class="btn sm ghost" data-act="sq-mod-del" data-id="${s.id}" data-i="${i}" aria-label="Удалить бонус">✕</button></div>`).join('')}
+  <button class="btn sm" data-act="sq-mod-add" data-id="${s.id}">Добавить бонус</button>
+  <h3>Индивидуальные тактики и манёвры</h3>
+  ${s.tactics.map((t,i)=>`<div class="bel"><input class="f" data-bind="${p}.tactics.${i}.name" value="${esc(t.name)}" placeholder="Название"><textarea class="f" style="margin-top:6px;min-height:50px" data-bind="${p}.tactics.${i}.text" placeholder="Эффект">${esc(t.text)}</textarea>
+   <div class="grid2" style="margin-top:6px">${SQ_STATS.slice(0,4).map(([k,n])=>`<label>${n}<input class="f" type="number" data-num data-bind="${p}.tactics.${i}.${k}" data-rerender value="${+t[k]||0}"></label>`).join('')}</div>
+   <div class="row" style="margin-top:6px"><span class="spacer"></span><button class="btn sm ghost" data-act="sq-tac-del" data-id="${s.id}" data-i="${i}" data-confirm>Удалить</button></div></div>`).join('')}
+  <button class="btn sm" data-act="sq-tac-add" data-id="${s.id}">Добавить тактику</button>
+  <label class="fl">Заметки</label><textarea class="f" data-bind="${p}.notes">${esc(s.notes)}</textarea>
+  <div class="row" style="margin-top:8px"><span class="spacer"></span><button class="btn sm danger" data-act="sq-del" data-id="${s.id}" data-confirm>Удалить отряд</button></div>
+ </div>`;
+}
+
+function vTroops(c,A){
+ const f=A.faction;
+ return `
+ <section class="blk card">
+  <div class="row"><h2 style="margin:0">Войска фракции · день ${A.day}</h2><span class="spacer"></span><button class="btn sm" data-act="day" data-confirm>Новый день</button></div>
+  <p class="hint" style="margin:2px 0 10px">Характеристики общие для всех войск фракции и улучшаются централизованно, за деньги или влияние.</p>
+  <div class="facgrid">${[['atk','Потенциал атаки',-10,30],['def','Потенциал защиты',-10,30],['dmg','Урон',0,30],['hp','Здоровье',1,60],['disc','Дисциплина новых войск',0,30]].map(([k,n,mn,mx])=>`<div><div class="small muted">${n}</div>${stepper('fac',+f[k],`data-f="${k}"`,mn,mx)}</div>`).join('')}</div>
+  <details style="margin-top:12px"><summary class="small">Значения, которые правила оставляют мастеру</summary>
+   <div class="grid2" style="margin-top:8px">${[['discWin','Дисциплина за победу'],['discLoss','Дисциплина за поражение'],['costLast','Цена «До последней капли»'],['costSuicide','Цена «Суицидальной атаки»'],['costAggr','Цена «Агрессивной атаки»']].map(([k,n])=>`<label>${n}<input class="f" type="number" min="0" data-num data-bind="army.faction.${k}" data-rerender value="${+f[k]||0}"></label>`).join('')}</div>
+  </details>
+ </section>
+ ${ui.F?vFight(A):''}
+ ${A.armies.map(t=>trCard(A,t)).join('')}
+ <section class="blk"><div class="row"><button class="btn" data-act="tr-add">Добавить войско</button>${!ui.F&&A.armies.length?'<button class="btn" data-act="f-open" data-v="defend">Отразить нападение</button>':''}</div>
+ <p class="hint">Войско — 12 отрядов на глобальной карте. Одно действие в день. ${A.districts.length?'':'Узлы силы задаются во вкладке «Районы».'}</p></section>`;
+}
+function trCard(A,t){
+ const q=TR(A,t), pct=clamp(t.hp/Math.max(1,q.hpMax)*100,0,100);
+ const badges=[];
+ if(t.status==='destroyed') badges.push('<span class="pen">Уничтожено</span>');
+ else if(t.status==='captured') badges.push('<span class="pen">В плену</span>');
+ else {
+  if(t.status==='retreat') badges.push('<span class="pen">Отступает</span>');
+  if(q.dis) badges.push('<span class="pen">Не подчиняется: −4 к потенциалам</span>');
+  if(t.last) badges.push('<span class="pen sand">До последней капли крови</span>');
+  if(t.action) badges.push(`<span class="chip">Сегодня: ${ACT_NAME[t.action]||t.action}</span>`);
+ }
+ const allied=A.districts.some(d=>d.nodes.some(n=>n.ours&&n.id!==t.node));
+ return `
+ <section class="blk card ${q.gone?'gonecard':''}">
+  <div class="row"><input class="f" style="flex:1;min-width:140px;font-weight:600" data-bind="army.armies.#${t.id}.name" value="${esc(t.name)}" aria-label="Название войска"><button class="btn sm ghost" data-act="tr-del" data-id="${t.id}" data-confirm>Удалить</button></div>
+  ${badges.length?`<div class="row" style="margin-top:8px">${badges.join('')}</div>`:''}
+  ${q.gone?'':`
+  <label class="fl">Позиция</label><select class="f" data-bind="army.armies.#${t.id}.node" data-rerender>${nodeOpts(A,t.node)}</select>
+  ${q.nd?`<div class="hint">${esc(q.nd.d.name)}${q.ready?` · боеготовность района: +${q.ready} к атаке`:''}${q.fort?' · укрепление: +2 к защите':''}</div>`:''}
+  <div class="stats" style="margin-top:10px">
+   <div class="stat"><b>${sgn(q.atk)}</b><small>Потенциал атаки</small></div>
+   <div class="stat"><b>${sgn(q.def)}</b><small>Потенциал защиты</small></div>
+   <div class="stat"><b>${q.dmg}</b><small>Урон</small></div>
+  </div>
+  <div class="row" style="margin-top:10px"><span class="small muted" style="min-width:74px">Здоровье</span><div class="loadbar ${t.hp<=q.hpMax/3?'o2':''}" style="flex:1"><i style="width:${pct}%"></i></div>${stepper('tr-hp',t.hp,`data-id="${t.id}"`,-q.hpMax,q.hpMax)}<span class="small muted">/${q.hpMax}</span></div>
+  <div class="row" style="margin-top:6px"><span class="small muted" style="min-width:74px">Дисциплина</span><span class="spacer"></span>${stepper('tr-disc',t.disc,`data-id="${t.id}"`,0,99)}</div>
+  <p class="hint">Здоровье: действие «Восполнение сил», медикаменты, особенности местности. Дисциплина зависит от снабжения, морального духа и успехов на фронте.</p>
+  ${t.status==='retreat'?`<div class="fallen" style="margin-top:8px"><b>Отступление</b>Войско должно уйти на ближайший союзный узел силы. Если отступить некуда — оно попадает в плен.
+   <div class="row" style="margin-top:8px">${allied?`<select class="f" style="flex:1;min-width:150px" data-bind="army.armies.#${t.id}.retreatTo" data-rerender>${nodeOpts(A,t.retreatTo,n=>n.ours&&n.id!==t.node,'— союзный узел —')}</select><button class="btn sm" data-act="tr-retreat" data-id="${t.id}" ${t.retreatTo?'':'disabled'}>Отступить</button>`:''}<button class="btn sm danger" data-act="tr-capture" data-id="${t.id}" data-confirm>В плен</button></div></div>`:''}
+  ${q.free?`<h3>Действие дня</h3><div class="row">${TR_ACTIONS.map(([k,n,h])=>`<button class="btn sm" data-act="tr-act" data-v="${k}" data-id="${t.id}" title="${h}">${n}</button>`).join('')}</div>
+   ${ui.raze===t.id?`<div class="row" style="margin-top:8px"><select class="f" style="flex:1;min-width:150px" data-bind="army.armies.#${t.id}.razeTo" data-rerender>${nodeOpts(A,t.razeTo,n=>n.fort&&n.id!==t.node,'— укреплённый узел —')}</select><button class="btn sm pri" data-act="tr-raze" data-id="${t.id}" ${t.razeTo?'':'disabled'}>Разрушить</button></div>`:''}
+   <p class="hint">Атака и особые манёвры — через сражение. Особые манёвры тратят дисциплину.</p>`:''}`}
+ </section>`;
+}
+function vFight(A){
+ const F=ui.F, f=A.faction, atk=F.role==='attack';
+ const elig=A.armies.filter(t=>{const q=TR(A,t);if(F.res) return !!F.ours[t.id];return atk?q.free:!q.gone&&t.status!=='retreat'&&(t.hp>0||t.last)});
+ const cost={last:+f.costLast,suicide:+f.costSuicide,aggr:+f.costAggr};
+ const specials=TR_SPECIAL.filter(([k])=>atk||k===''||k==='last');
+ return `
+ <section class="blk card" style="border-color:var(--water)">
+  <div class="row"><h2 style="margin:0">Сражение войск</h2><span class="spacer"></span><button class="btn sm ghost" data-act="f-close">Закрыть</button></div>
+  <div class="row" style="margin-top:8px"><span class="seg">${[['attack','Атакуем'],['defend','Защищаемся']].map(([k,n])=>`<button data-act="f-role" data-v="${k}" aria-pressed="${F.role===k}" ${F.res?'disabled':''}>${n}</button>`).join('')}</span></div>
+  <h3>Наши войска</h3>
+  ${elig.length?elig.map(t=>{const q=TR(A,t);return `<div class="row" style="margin-bottom:6px"><button class="sw" data-act="f-our" data-id="${t.id}" aria-pressed="${!!F.ours[t.id]}" aria-label="${esc(t.name)}" ${F.res?'disabled':''}></button><span>${esc(t.name)}</span><span class="spacer"></span><span class="small muted">${atk?'атака '+sgn(q.atk):'защита '+sgn(q.def)} · урон ${q.dmg} · ЗД ${t.hp} · дисц. ${t.disc}</span></div>`}).join(''):`<div class="empty">${atk?'Нет войск, способных атаковать сегодня.':'Нет войск, способных защищаться.'}</div>`}
+  <label class="fl">${atk?'Узел силы, на который нападаем':'Узел силы, который обороняем'}</label>
+  <select class="f" data-ubind="F.target" ${F.res?'disabled':''}>${nodeOpts(A,F.target,atk?n=>!n.ours:n=>n.ours)}</select>
+  <label class="fl">Особый манёвр</label>
+  <select class="f" data-ubind="F.special" ${F.res?'disabled':''}>${specials.map(([k,n])=>`<option value="${k}" ${F.special===k?'selected':''}>${n}${k?` (−${cost[k]} дисциплины)`:''}</option>`).join('')}</select>
+  <div class="hint">${{'':'',last:'Войско не отступает при 0 здоровья; уничтожено, когда здоровье опустится до минус максимума.',suicide:'При успешном попадании здоровье одного войска противника падает до 0, ваше войско уничтожено.',aggr:'+2 к наносимому урону, +1 к получаемому.'}[F.special]}</div>
+  <h3>Противник</h3>
+  ${F.enemies.map((e,i)=>`<div class="row" style="margin-bottom:6px"><input class="f" style="flex:2;min-width:120px" data-ubind="F.enemies.${i}.name" value="${esc(e.name)}" ${F.res?'disabled':''}><label class="small muted">Потенц.<input class="f num" type="number" data-num data-ubind="F.enemies.${i}.pot" value="${+e.pot||0}" ${F.res?'disabled':''}></label><label class="small muted">Урон<input class="f num" type="number" data-num data-ubind="F.enemies.${i}.dmg" value="${+e.dmg||0}" ${F.res?'disabled':''}></label>${F.enemies.length>1&&!F.res?`<button class="btn sm ghost" data-act="f-en-del" data-i="${i}" aria-label="Убрать">✕</button>`:''}</div>`).join('')}
+  ${F.res?'':'<button class="btn sm" data-act="f-en-add">Добавить войско противника</button>'}
+  <p class="hint">Потенциал противника — его ${atk?'защита с укреплениями и бонусами':'атака с бонусами'}. Каждый бросает d20 + потенциал; войско наносит урон всем противникам с результатом ниже своего.</p>
+  ${F.res?`<div class="res"><div class="verdict" style="color:${F.res.win?'var(--ok)':F.res.lose?'var(--blood)':'var(--muted)'}">${F.res.title}</div>
+   <table class="ftab">${F.res.rows.map(r=>`<tr><td>${esc(r.n)}</td><td>d20 ${r.d} ${sgn(r.pot)} = <b>${r.tot}</b></td><td>${r.note}</td></tr>`).join('')}</table>
+   ${F.res.notes.map(n=>`<div class="small" style="margin-top:4px">${esc(n)}</div>`).join('')}</div>
+   <div class="row" style="margin-top:10px"><span class="spacer"></span><button class="btn" data-act="f-close">Готово</button></div>`
+  :`<div class="row" style="margin-top:12px"><span class="spacer"></span><button class="btn pri" data-act="f-roll">Бросить d20</button></div>`}
+ </section>`;
+}
+function fight(c){
+ const A=c.army, F=ui.F, f=A.faction, atk=F.role==='attack';
+ const ours=A.armies.filter(t=>F.ours[t.id]);
+ if(!ours.length){toast('Отметьте свои войска');return false}
+ if(!F.target){toast('Выберите узел силы');return false}
+ const cost=F.special?+f[{last:'costLast',suicide:'costSuicide',aggr:'costAggr'}[F.special]]||0:0;
+ if(ours.some(t=>t.disc<cost)){toast('Не хватает дисциплины для манёвра');return false}
+ const aggr=F.special==='aggr', tgt=nodeOf(A,F.target);
+ const O=ours.map(t=>{if(cost) t.disc-=cost; if(F.special==='last') t.last=true;
+  const q=TR(A,t),d=rnd(20),pot=atk?q.atk:q.def;return {t,q,d,pot,tot:d+pot,dmg:q.dmg+(aggr?2:0),taken:0,dealt:0,sui:null}});
+ const E=F.enemies.map(e=>{const d=rnd(20),pot=+e.pot||0;return {e,d,pot,tot:d+pot,dmg:+e.dmg||0,taken:0,zero:false}});
+ for(const o of O) for(const e of E){
+  if(o.tot>e.tot){ if(F.special==='suicide'&&!o.sui){o.sui=e;e.zero=true} else if(F.special!=='suicide'){e.taken+=o.dmg;o.dealt+=o.dmg} }
+  else if(e.tot>o.tot) o.taken+=e.dmg+(aggr?1:0);
+ }
+ const best=a=>Math.max(...a.map(x=>x.tot)), win=best(O)>best(E), lose=best(O)<best(E), notes=[];
+ for(const o of O){ const t=o.t;
+  if(atk&&!t.action) t.action=aggr?'aggr':'attack';
+  t.hp-=o.taken; if(!t.last) t.hp=Math.max(0,t.hp);
+  if(o.sui){t.status='destroyed';notes.push(`${t.name}: суицидальная атака — ${o.sui.e.name} теряет всё здоровье, войско уничтожено.`);continue}
+  if(t.hp<=0){ if(t.last){ if(t.hp<=-o.q.hpMax){t.status='destroyed';notes.push(`${t.name} сражалось до конца и уничтожено.`)} else notes.push(`${t.name} не отступает: здоровье ${t.hp}.`) }
+   else {t.status='retreat';notes.push(`${t.name}: здоровье 0 — отступление на союзный узел или плен.`)} }
+  if(t.status!=='destroyed'){ if(win) t.disc+=+f.discWin||0; if(lose) t.disc=Math.max(0,t.disc-(+f.discLoss||0)); }
+ }
+ if(win&&atk&&tgt){ tgt.n.ours=true; for(const o of O) if(o.t.status==='') o.t.node=F.target; notes.push(`Узел «${tgt.n.name}» захвачен.`) }
+ const holds=O.some(o=>o.t.last&&o.t.status!=='destroyed');
+ if(lose&&!atk&&tgt&&holds) notes.push(`«${tgt.n.name}» удерживается: войско сражается до последней капли крови.`);
+ if(lose&&!atk&&tgt&&!holds){ tgt.n.ours=false; for(const o of O) if(o.t.status===''&&o.t.node===F.target) o.t.status='retreat'; notes.push(`Узел «${tgt.n.name}» потерян — войска в нём отступают.`) }
+ if(win&&f.discWin) notes.push(`Победа: +${f.discWin} дисциплины.`); if(lose&&f.discLoss) notes.push(`Поражение: −${f.discLoss} дисциплины.`);
+ F.res={win,lose,title:win?'Победа':lose?'Поражение':'Ничья — урон не нанесён',notes,rows:[
+  ...O.map(o=>({n:o.t.name,d:o.d,pot:o.pot,tot:o.tot,note:[o.dealt?`нанесло ${o.dealt}`:'',o.taken?`получило ${o.taken}`:''].filter(Boolean).join(', ')||'—'})),
+  ...E.map(e=>({n:e.e.name,d:e.d,pot:e.pot,tot:e.tot,note:e.zero?'здоровье до 0':e.taken?`получило ${e.taken}`:'—'}))]};
+ log(`Сражение за «${tgt?tgt.n.name:'узел'}»: ${F.res.title.toLowerCase()} (${best(O)} против ${best(E)})`);
+ return true;
+}
+
+function vDistricts(c,A){
+ return `
+ <section class="blk card"><h2>Силовая борьба</h2>
+  <p class="small" style="margin:0">В районе обычно от 2 до 6 узлов силы: заводы, библиотеки, радиорубки, аванпосты. Захвативший узел получает его преимущества. Кто держит большинство узлов района — правящая фракция, и все его политические действия там получают +2.</p>
+ </section>
+ ${A.districts.map(d=>{const k=d.nodes.filter(n=>n.ours).length, ctl=k*2>d.nodes.length;
+  return `<section class="blk card">
+   <div class="row"><input class="f" style="flex:1;min-width:140px;font-weight:600" data-bind="army.districts.#${d.id}.name" value="${esc(d.name)}" aria-label="Название района"><button class="btn sm ghost" data-act="d-del" data-id="${d.id}" data-confirm>Удалить</button></div>
+   <div class="${ctl?'ctl on':'ctl'}">${ctl?`Район под вашим контролем (${k} из ${d.nodes.length}): вы правящая фракция, +2 к политическим действиям.`:`Ваших узлов: ${k} из ${d.nodes.length}. Для контроля нужно большинство.`}</div>
+   ${d.nodes.map(n=>`<div class="row" style="margin-bottom:6px"><input class="f" style="flex:1;min-width:120px" data-bind="army.districts.#${d.id}.nodes.#${n.id}.name" value="${esc(n.name)}" aria-label="Узел силы"><span class="row" style="gap:6px"><button class="sw" data-act="n-flag" data-f="ours" data-id="${d.id}" data-n="${n.id}" aria-pressed="${n.ours}" aria-label="Наш узел"></button><span class="small">Наш</span></span><span class="row" style="gap:6px"><button class="sw" data-act="n-flag" data-f="fort" data-id="${d.id}" data-n="${n.id}" aria-pressed="${n.fort}" aria-label="Укреплён"></button><span class="small">Укреплён</span></span>${d.nodes.length>2?`<button class="btn sm ghost" data-act="n-del" data-id="${d.id}" data-n="${n.id}" aria-label="Удалить узел">✕</button>`:''}</div>`).join('')}
+   ${d.nodes.length<6?`<button class="btn sm" data-act="n-add" data-id="${d.id}">Добавить узел</button>`:''}
+   <div class="row" style="margin-top:12px"><b class="small">Боеготовность</b><span class="spacer"></span>${stepper('d-ready',d.ready,`data-id="${d.id}"`,1,5)}</div>
+   <div class="small muted">${d.ready>1?`Войска получают +${d.ready-1} к потенциалу атаки.`:'Население не желает сражаться, бонусов нет.'}</div>
+   <div class="row" style="margin-top:10px"><b class="small">Благополучие</b><span class="spacer"></span>${stepper('d-welf',d.welfare,`data-id="${d.id}"`,1,10)}</div>
+   <div class="small muted">${welfText(d.welfare)[0].toUpperCase()+welfText(d.welfare).slice(1)}.</div>
+  </section>`}).join('')}
+ <section class="blk"><button class="btn" data-act="d-add">Добавить район</button></section>`;
+}
+
+function armyAct(a,ds,c,n,i){
+ const A=c.army, s=ds.id?A.squads.find(x=>x.id===ds.id):null, t=ds.id?A.armies.find(x=>x.id===ds.id):null, dist=ds.id?A.districts.find(x=>x.id===ds.id):null;
+ switch(a){
+  case 'av': ui.av=ds.v; ui.F=null; window.scrollTo(0,0); return 'ui';
+  case 'b-start': A.battle.on=true; A.battle.round=1; A.squads.forEach(x=>Object.assign(x,{tactic:'',acted:false,attacked:false,restUsed:false})); log('Сражение отрядов началось'); break;
+  case 'b-next': A.squads.forEach(x=>{ if(x.tactic==='rest'){x.restUsed=true; if(!x.attacked&&x.hp>0&&x.hp<x.hpMax){x.hp=Math.min(x.hpMax,x.hp+2);log(`${x.name} перевёл дух: +2 здоровья`)}} Object.assign(x,{tactic:'',acted:false,attacked:false}) }); A.battle.round++; ui.atk=null; log(`Ход ${A.battle.round}`); break;
+  case 'b-end': A.battle.on=false; A.squads.forEach(x=>Object.assign(x,{tactic:'',acted:false,attacked:false})); ui.atk=null; log('Сражение отрядов завершено'); break;
+  case 'b-side': A.battle.side=ds.v; break;
+  case 'b-enemy': A.battle.enemy=clamp(A.battle.enemy+n,0,99); break;
+  case 'sq-add': { const x=newSquad(); A.squads.push(x); ui.sqEdit=x.id; break; }
+  case 'sq-del': A.squads=A.squads.filter(x=>x.id!==ds.id); A.squads.forEach(x=>{if(x.mergeWith===ds.id) x.mergeWith=''}); break;
+  case 'sq-edit': ui.sqEdit=ui.sqEdit===ds.id?null:ds.id; return 'ui';
+  case 'sq-flag': s[ds.f]=!s[ds.f]; if(ds.f==='lost') log(`${s.name}: ${s.lost?'вышел из-под контроля':'снова под контролем'}`); break;
+  case 'sq-dmgn': ui.sqDmg[ds.id]=clamp((ui.sqDmg[ds.id]||1)+n,1,50); return 'ui';
+  case 'sq-hit': { const q=SQ(s), N=ui.sqDmg[s.id]||1; let r=Math.max(0,N-q.def); if(q.extra&&r>0) r+=q.extra;
+   s.hp=Math.max(0,s.hp-r); s.attacked=true; const q2=SQ(s);
+   log(`${s.name}: урон ${N} − Защита ${q.def}${q.extra&&r>0?' + 1 (Усиление)':''} → −${r}`+(q2.losses>q.losses?', несёт потери':'')+(q2.gone?', покидает поле боя':'')); break; }
+  case 'sq-heal': { const q=SQ(s); s.hp=Math.min(s.hpMax,s.hp+1); if(SQ(s).losses<q.losses) log(`${s.name} восстановил потери`); break; }
+  case 'sq-acted': s.acted=!s.acted; break;
+  case 'sq-atk': if(ui.atk===s.id) ui.atk=null; else {ui.atk=s.id; ui.atkDef=0; ui.atkMelee=!SQ(s).ranged} return 'ui';
+  case 'atk-def': ui.atkDef=clamp(ui.atkDef+n,0,20); return 'ui';
+  case 'atk-melee': ui.atkMelee=!ui.atkMelee; return 'ui';
+  case 'sq-strike': { const q=SQ(s), dmg=Math.max(0,q.power+(ui.atkMelee?q.melee:0)-ui.atkDef); log(`${s.name} атакует: ${dmg} урона (Сила ${q.power}${ui.atkMelee&&q.melee?' +2':''} − Защита ${ui.atkDef})`); if(A.battle.on) s.acted=true; ui.atk=null; break; }
+  case 'sq-mod-add': s.mods.push({src:'',stat:'power',delta:1}); break;
+  case 'sq-mod-del': s.mods.splice(i,1); break;
+  case 'sq-tac-add': s.tactics.push({name:'',text:'',power:0,def:0,range:0,move:0}); break;
+  case 'sq-tac-del': { s.tactics.splice(i,1); if(s.tactic&&s.tactic[0]==='c'){const j=+s.tactic.slice(1); s.tactic=j===i?'':j>i?'c'+(j-1):s.tactic} break; }
+  case 'sq-merge': { const o=A.squads.find(x=>x.id===s.mergeWith); if(!o) break; A.squads=A.squads.filter(x=>x.id!==o.id); s.hp=s.hpMax; s.mergeWith=''; log(`${s.name} и ${o.name} объединены: потери и здоровье восстановлены`); break; }
+  case 'tr-add': A.armies.push(newTroop(A)); break;
+  case 'tr-del': A.armies=A.armies.filter(x=>x.id!==ds.id); if(ui.F) delete ui.F.ours[ds.id]; break;
+  case 'tr-hp': { t.hp=clamp(t.hp+n,-A.faction.hp,A.faction.hp); if(t.status==='retreat'&&t.hp>0&&nodeOf(A,t.node)?.n.ours) t.status=''; break; }
+  case 'tr-disc': t.disc=clamp(t.disc+n,0,99); if(t.disc===0&&n<0) log(`${t.name}: дисциплина 0 — войско перестаёт подчиняться`); break;
+  case 'tr-act': { const v=ds.v, nd=nodeOf(A,t.node);
+   if(v==='attack'){ ui.F={role:'attack',ours:{[t.id]:true},special:'',target:'',enemies:[{name:'Войско противника',pot:0,dmg:3}],res:null}; window.scrollTo(0,0); return 'ui'; }
+   if(v==='raze'){ ui.raze=ui.raze===t.id?null:t.id; return 'ui'; }
+   if((v==='fort'||v==='loot')&&!nd){ toast('Сначала укажите позицию войска'); return 'ui'; }
+   if(v==='fort'&&nd.n.fort){ toast('В этом узле уже есть укрепление'); return 'ui'; }
+   t.action=v;
+   if(v==='defend') log(`${t.name}: оборона, +4 к защите до конца дня`);
+   if(v==='fort'){ nd.n.fort=true; log(`${t.name} укрепляет «${nd.n.name}»: +2 к защите союзных войск`); }
+   if(v==='heal'){ t.hp=Math.min(A.faction.hp,t.hp+3); log(`${t.name}: восполнение сил, +3 здоровья`); }
+   if(v==='raid') log(`${t.name}: партизанский удар, ${A.faction.dmg} урона противнику`);
+   if(v==='loot'){ nd.d.welfare=Math.max(1,nd.d.welfare-1); log(`${t.name} мародёрствует: благополучие района «${nd.d.name}» ${nd.d.welfare}`); }
+   break; }
+  case 'tr-raze': { const nd=nodeOf(A,t.razeTo); if(!nd) break; nd.n.fort=false; t.action='raze'; t.razeTo=''; ui.raze=null; log(`${t.name} разрушает укрепления «${nd.n.name}»`); break; }
+  case 'tr-retreat': { const nd=nodeOf(A,t.retreatTo); if(!nd) break; t.node=t.retreatTo; t.retreatTo=''; t.status=''; log(`${t.name} отступает в «${nd.n.name}»`); break; }
+  case 'tr-capture': t.status='captured'; log(`${t.name} попадает в плен`); break;
+  case 'day': A.day++; A.armies.forEach(x=>{x.action=''; if(x.last&&x.hp<=0&&x.status===''){x.hp=0;x.status='retreat';log(`${x.name}: бой окончен, войско отступает`)} x.last=false}); ui.raze=null; log(`День ${A.day}: войска готовы к действиям`); break;
+  case 'fac': { const k=ds.f, lim={atk:[-10,30],def:[-10,30],dmg:[0,30],hp:[1,60],disc:[0,30]}[k], old=+A.faction[k]; A.faction[k]=clamp(old+n,lim[0],lim[1]);
+   if(k==='hp') A.armies.forEach(x=>{ if(x.status!=='destroyed'&&x.status!=='captured') x.hp=Math.min(A.faction.hp,x.hp+(A.faction.hp-old>0&&x.hp>0?A.faction.hp-old:0)) });
+   log(`Войска фракции: ${{atk:'потенциал атаки',def:'потенциал защиты',dmg:'урон',hp:'здоровье',disc:'дисциплина новых войск'}[k]} ${A.faction[k]}`); break; }
+  case 'f-open': ui.F={role:ds.v||'attack',ours:{},special:'',target:'',enemies:[{name:'Войско противника',pot:0,dmg:3}],res:null}; window.scrollTo(0,0); return 'ui';
+  case 'f-close': ui.F=null; return 'ui';
+  case 'f-role': ui.F.role=ds.v; ui.F.ours={}; ui.F.special=''; ui.F.target=''; return 'ui';
+  case 'f-our': ui.F.ours[ds.id]=!ui.F.ours[ds.id]; return 'ui';
+  case 'f-en-add': ui.F.enemies.push({name:`Войско противника ${ui.F.enemies.length+1}`,pot:0,dmg:3}); return 'ui';
+  case 'f-en-del': ui.F.enemies.splice(i,1); return 'ui';
+  case 'f-roll': if(!fight(c)) return 'ui'; break;
+  case 'd-add': A.districts.push(newDistrict()); break;
+  case 'd-del': A.districts=A.districts.filter(x=>x.id!==ds.id); break;
+  case 'd-ready': dist.ready=clamp(dist.ready+n,1,5); break;
+  case 'd-welf': dist.welfare=clamp(dist.welfare+n,1,10); break;
+  case 'n-add': dist.nodes.push(newNode()); break;
+  case 'n-del': dist.nodes=dist.nodes.filter(x=>x.id!==ds.n); break;
+  case 'n-flag': { const nd=dist.nodes.find(x=>x.id===ds.n); nd[ds.f]=!nd[ds.f]; if(ds.f==='ours') log(`«${nd.name}» ${nd.ours?'под вашим контролем':'потерян'}`); break; }
+  default: return 'none';
+ }
+}
+
 /* ---------- roller ---------- */
 const R={open:false,skill:'sho',mod:0,dc:'',attack:false,atype:'normal',aim:2,light:0,cover:0,weapon:'',power:0,res:null};
 function openRoll(k,weaponId){
@@ -803,6 +1150,7 @@ function act(a,ds,el){
   case 'r-roll': doRoll(); sv=false; rer=false; break;
   case 'r-boost': { const r=R.res; c.balance-=1; r.raw=r.raw.map(o=>({d:o.d,total:o.total+3})); r.total=r.raw.map(o=>o.total).join(' / '); r.parts.push(['Равновесие',3]); if(r.dc) r.win=r.raw[0].total>=r.dc; log(`+3 за равновесие → ${r.total}${r.dc?(r.win?', успех':', провал'):''}`); save(); renderSheet(); if(tab==='agent') render(); return; }
   case 'r-token': { const r=R.res; c.tokens-=1; r.auto=true; r.win=true; log(`Жетон профессионализма: ${SK[R.skill].n} — автоуспех`); save(); renderSheet(); if(tab==='agent') render(); return; }
+  default: if(armyAct(a,ds,c,n,i)==='ui') sv=false;
  }
  if(sv) save(); if(rer) render();
 }
@@ -810,9 +1158,13 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 document.addEventListener('input',e=>{
  const t=e.target;
  if(t.dataset.rbind){ R[t.dataset.rbind]=t.type==='number'?t.value:t.value; if(t.tagName==='SELECT'){ if(t.dataset.rbind==='light'||t.dataset.rbind==='cover'||t.dataset.rbind==='aim') R[t.dataset.rbind]=+t.value; R.res=null; renderSheet(); } return; }
+ if(t.dataset.ubind){ let v=t.value; if('num' in t.dataset) v=+v||0; setPath(ui,t.dataset.ubind,v); if(t.tagName==='SELECT') render(); return; }
  if(!t.dataset.bind) return;
  let v=t.value; if('num' in t.dataset) v=+v||0;
- setPath(C(),t.dataset.bind,v); save();
+ setPath(C(),t.dataset.bind,v);
+ const hm=t.dataset.bind.match(/^army\.squads\.#(\w+)\.hpMax$/);
+ if(hm){ const A=C().army, sq=A.squads.find(x=>x.id===hm[1]); if(sq&&(!A.battle.on||sq.hp>sq.hpMax)) sq.hp=Math.max(0,sq.hpMax); }
+ save();
  if('rerenderName' in t.dataset){ const o=document.querySelector(`#charSel option[value="${cur}"]`); if(o) o.textContent=v||'Без имени'; }
 });
 document.addEventListener('change',e=>{
