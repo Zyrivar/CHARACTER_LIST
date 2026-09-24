@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Тварикони — лист агента</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jura:wght@500;700&family=Golos+Text:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1EE; --surface:#FFFFFF; --sunk:#E3E9E7; --line:#C6D1CF; --text:#13303A; --muted:#5A6F72;
+  --water:#1C7C83; --water-soft:#CBE7E8; --sand:#9A6B12; --sand-soft:#F1E3C4; --blood:#B23A28; --blood-soft:#F4D6D0; --ok:#2E7D4F;
+  --display:"Jura","Trebuchet MS",system-ui,sans-serif; --body:"Golos Text","Segoe UI",system-ui,sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E2229; --surface:#15313A; --sunk:#10282F; --line:#2B4B54; --text:#E7E2D4; --muted:#93A7A6;
+    --water:#6CC7C9; --water-soft:#1D4A50; --sand:#D9B46A; --sand-soft:#473B22; --blood:#E06A55; --blood-soft:#4A2521; --ok:#7BCB93;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E2229; --surface:#15313A; --sunk:#10282F; --line:#2B4B54; --text:#E7E2D4; --muted:#93A7A6;
+  --water:#6CC7C9; --water-soft:#1D4A50; --sand:#D9B46A; --sand-soft:#473B22; --blood:#E06A55; --blood-soft:#4A2521; --ok:#7BCB93;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 var(--body);-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--water);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding:0 14px 120px}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);padding:10px 14px 0;max-width:760px;margin:0 auto}
+.idrow{display:flex;gap:8px;align-items:center}
+.idrow select{flex:1;min-width:0;font:700 20px/1.2 var(--display);background:transparent;border:0;padding:4px 0;letter-spacing:.01em}
+.sync{font-size:12px;color:var(--muted);white-space:nowrap}
+.sync.warn{color:var(--blood)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);margin-top:6px}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;background:none;border:0;padding:10px 12px 9px;color:var(--muted);border-bottom:2px solid transparent;font-weight:600}
+.tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--water)}
+
+/* blocks */
+section.blk{margin-top:18px}
+h2{font:700 17px/1.2 var(--display);margin:0 0 10px;letter-spacing:.02em}
+h3{font:600 14px/1.3 var(--body);margin:14px 0 6px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.muted{color:var(--muted)} .small{font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;min-height:40px;font-weight:600}
+.btn.pri{background:var(--water);border-color:var(--water);color:var(--bg)}
+.btn.danger{color:var(--blood);border-color:var(--blood)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sm{min-height:32px;padding:4px 10px;font-size:13px}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.step button{width:38px;height:38px;border:0;background:transparent;font-size:18px;font-weight:600}
+.step button:disabled{opacity:.3}
+.step span{min-width:34px;text-align:center;font:700 17px var(--display)}
+input.f,select.f,textarea.f{width:100%;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+textarea.f{min-height:70px;resize:vertical}
+input.f.num{width:74px;text-align:center}
+label.fl{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+
+/* the track */
+.track{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0 10px}
+.cell{width:22px;height:30px;border-radius:5px;border:1.5px solid var(--water);background:var(--water)}
+.cell.lost{background:transparent;opacity:.45}
+.cell.ob{border-color:var(--sand);background:var(--sand)}
+.cell.ob.lost{background:transparent}
+.gap{width:10px}
+.wpip{border:2px solid var(--blood);border-radius:50%;background:transparent;display:inline-grid;place-items:center;color:var(--blood);font:700 12px var(--display);padding:0}
+.wpip.on{background:var(--blood);color:var(--bg)}
+.w1{width:30px;height:30px}.w2{width:36px;height:36px}.w3{width:44px;height:44px}
+.trackhead{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline}
+.big{font:700 30px/1 var(--display)}
+.lbl{font-size:12px;color:var(--muted)}
+.dead{background:var(--blood-soft);color:var(--blood);border-radius:10px;padding:10px 12px;font-weight:600;margin-bottom:10px}
+.pen{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--blood-soft);color:var(--blood);font-size:13px;font-weight:600}
+.pen.sand{background:var(--sand-soft);color:var(--sand)}
+
+/* balance */
+.bal{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.balnum{font:700 52px/1 var(--display);color:var(--sand);min-width:64px;text-align:center}
+.meter{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:6px 0}
+.meter i{height:10px;border-radius:3px;background:var(--sunk);border:1px solid var(--line)}
+.meter i.on{background:var(--sand);border-color:var(--sand)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
+.stat b{display:block;font:700 24px/1.1 var(--display)}
+.stat small{display:block;color:var(--muted);font-size:12px;line-height:1.3}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:8px 12px;min-height:38px}
+.seg button[aria-pressed="true"]{background:var(--water);color:var(--bg);font-weight:600}
+.tok{width:24px;height:24px;border-radius:50%;border:2px solid var(--water);display:inline-block}
+.tok.on{background:var(--water)}
+
+/* skills */
+.budget{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar{height:8px;background:var(--sunk);border-radius:4px;overflow:hidden;flex:1;min-width:120px}
+.bar i{display:block;height:100%;background:var(--water)}
+.bar.over i{background:var(--blood)}
+.sk{display:grid;grid-template-columns:34px 1fr auto;column-gap:10px;row-gap:2px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.sk .skh{grid-column:2/-1}
+.sk .ctl{display:flex;gap:8px;align-items:center}
+.step.cmp button{width:30px;height:34px;font-size:16px}.step.cmp span{min-width:26px;font-size:16px}
+.sk:first-of-type{border-top:0}
+.star{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);background:transparent;font-size:16px;color:var(--muted);padding:0}
+.star.on{border-color:var(--sand);background:var(--sand);color:var(--bg)}
+.skn{font-weight:600}
+.skh{font-size:12.5px;color:var(--muted);line-height:1.3}
+.skv{font:700 24px/1 var(--display);min-width:34px;text-align:right}
+.skv sup{font-size:12px;color:var(--water);margin-left:2px}
+.skv sup.neg{color:var(--blood)}
+.dice{width:40px;height:40px;border-radius:10px;border:1px solid var(--water);background:transparent;color:var(--water);font:700 13px var(--display);padding:0}
+
+/* items */
+.item{border-top:1px solid var(--line);padding:12px 0}
+.item:first-child{border-top:0;padding-top:0}
+.item .nm{font-weight:600;flex:1;min-width:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{font-size:12.5px;padding:2px 8px;border-radius:999px;background:var(--sunk);border:1px solid var(--line)}
+.ammo{display:inline-flex;gap:3px;vertical-align:middle}
+.ammo i{width:8px;height:16px;border-radius:2px;background:var(--sand)}
+.ammo i.off{background:transparent;border:1px solid var(--line)}
+.sw{position:relative;width:46px;height:28px;border-radius:14px;border:1px solid var(--line);background:var(--sunk);padding:0;flex:0 0 auto}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:left .15s}
+.sw[aria-pressed="true"]{background:var(--water);border-color:var(--water)}
+.sw[aria-pressed="true"]::after{left:21px;background:var(--bg)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.grid2 label{font-size:12px;color:var(--muted)}
+.grid2 input{width:100%}
+.loadbar{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden;position:relative}
+.loadbar i{display:block;height:100%;background:var(--water)}
+.loadbar.o1 i{background:var(--sand)} .loadbar.o2 i{background:var(--blood)}
+
+/* beliefs */
+.bel{border-top:1px solid var(--line);padding:12px 0}
+.bel:first-child{border-top:0;padding-top:0}
+.bel.gone .f{text-decoration:line-through;opacity:.6}
+.tag{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+
+/* log */
+.log{font-size:13px;max-height:220px;overflow:auto}
+.log div{padding:5px 0;border-top:1px solid var(--line)}
+.log div:first-child{border-top:0}
+.log time{color:var(--muted);margin-right:6px;font-variant-numeric:tabular-nums}
+
+/* roller sheet */
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;width:62px;height:62px;border-radius:50%;border:0;background:var(--water);color:var(--bg);font:700 15px var(--display);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.scrim{position:fixed;inset:0;background:rgba(5,15,18,.55);z-index:40;display:none}
+.scrim.open{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:88%;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .2s ease;max-width:760px;margin:0 auto}
+.sheet.open{transform:none}
+@media (prefers-reduced-motion:reduce){.sheet,.sw::after{transition:none}}
+.res{margin-top:14px;border-radius:14px;padding:14px;background:var(--sunk);border:1px solid var(--line)}
+.res .tot{font:700 48px/1 var(--display)}
+.res.win{border-color:var(--ok)} .res.win .verdict{color:var(--ok)}
+.res.fail{border-color:var(--blood)} .res.fail .verdict{color:var(--blood)}
+.verdict{font-weight:700;font-size:17px}
+.parts{font-size:13px;color:var(--muted);margin-top:6px}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+@media (max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}.cell{width:18px;height:26px}}
+.wrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:2px 0 12px}
+.wrow .wl{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="idrow">
+    <select id="charSel" aria-label="Выбор агента"></select>
+    <span id="sync" class="sync">Загрузка…</span>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+</header>
+<main class="wrap" id="main"></main>
+<button class="fab" data-act="roll-open" aria-label="Проверка навыка">d20</button>
+<div class="scrim" id="scrim" data-act="r-close"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Проверка"></div>
+
+<script>
+"use strict";
+/* ---------- rules data ---------- */
+const SKILLS=[
+ {k:'agi',n:'Ловкость',g:'Тело и бой',h:'Уклонение, акробатика, бесшумность, ближний бой. Определяет инициативу.'},
+ {k:'con',n:'Телосложение',g:'Тело и бой',h:'Сила и выносливость, ближний бой. +2 ОЗ и +2 к грузу за очко.'},
+ {k:'att',n:'Внимательность',g:'Тело и бой',h:'Заметить скрытое, среагировать. +1 к пассивной защите за очко.'},
+ {k:'sho',n:'Стрельба',g:'Тело и бой',h:'Дальний бой, метание, баллистика.'},
+ {k:'prs',n:'Убеждение',g:'Люди',h:'Красноречие, аргументы, торг.'},
+ {k:'prv',n:'Провокация',g:'Люди',h:'Задеть, подорвать авторитет, угрожать.'},
+ {k:'wil',n:'Воля',g:'Люди',h:'Сопротивление давлению и ужасу. +1 Очко Воли за очко.'},
+ {k:'emp',n:'Эмпатия',g:'Люди',h:'Понять чувства и мотивы, распознать ложь.'},
+ {k:'tec',n:'Технологии',g:'Знания',h:'Создать, починить, разобрать механизм.'},
+ {k:'hak',n:'Хакерство',g:'Знания',h:'Проникнуть в сеть, добыть данные, послать сигнал.'},
+ {k:'bio',n:'Биохимия',g:'Знания',h:'Лечение ран, медтехника, синтез веществ.'},
+ {k:'cul',n:'Культурология',g:'Знания',h:'Ритуалы, язык и знаки Тарикона, вести себя «своим».'}
+];
+const SK=Object.fromEntries(SKILLS.map(s=>[s.k,s]));
+const BUDGET=30, SKILL_CAP=6;
+const WOUNDS=[{n:'Слабое',pen:-1,dc:10},{n:'Серьёзное',pen:-2,dc:15},{n:'Смертельное',pen:-4,dc:20}];
+const TABS=[['agent','Агент'],['skills','Навыки'],['beliefs','Убеждения'],['gear','Снаряжение'],['dossier','Досье']];
+const SECRETS=['Какие кошмары мне снятся по ночам?','Остались ли у меня хоть какие-то пристрастия?','Каким я вижу своё будущее?','Какие люди мне нравятся?','Какие события сильнее всего ударили по мне?','Что я скрываю и что рискую показать, когда равновесие достигнет 0?'];
+
+/* ---------- helpers ---------- */
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const sgn=n=>n>0?'+'+n:String(n);
+function rnd(n){const a=new Uint32Array(1);crypto.getRandomValues(a);return 1+(a[0]%n)}
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+function newItem(p){return Object.assign({id:uid(),name:'Новый предмет',notes:'',weight:1,equipped:true,ob:0,pz:0,su:0,oz:0,dmg:0,ammoMax:0,ammo:0,range:'',autoFire:false},p||{})}
+function newChar(){
+ return {
+  id:uid(),name:'Новый агент',player:'',concept:'',creation:true,
+  skills:Object.fromEntries(SKILLS.map(s=>[s.k,0])),pro:[],bonuses:[],
+  hpLost:0,armorLost:0,wounds:[false,false,false],dead:false,mortalMin:null,
+  balance:10,tokens:2,willUsed:0,position:'stand',water:0,
+  items:[
+   newItem({name:'Пистолет скрытого ношения',notes:'9×19 мм. Не обнаруживается металлоискателем, выстрел не громче хлопка в ладоши.',dmg:3,ammoMax:4,ammo:4,range:'Средняя'}),
+   newItem({name:'Бронеткань скрытого ношения',ob:4,pz:1})
+  ],
+  abilities:[],
+  beliefs:{personal:[{text:'',ability:''},{text:'',ability:''},{text:'',ability:''}],professional:[{text:'',reward:'',renounced:false},{text:'',reward:'',renounced:false},{text:'',reward:'',renounced:false}],acquired:[],imposed:[]},
+  device:{on:false,name:'',powerMax:0,powerUsed:0,anonMax:0,anonUsed:0,djinns:[]},
+  rep:[],fame:1,hope:50,
+  dossier:{self:'',backstory:'',secrets:SECRETS.map(()=>'')},
+  log:[],updated:Date.now()
+ };
+}
+function normalize(c){ // fill fields missing in older saves
+ const d=newChar(); for(const k in d){ if(c[k]===undefined) c[k]=d[k]; }
+ for(const s of SKILLS) if(typeof c.skills[s.k]!=='number') c.skills[s.k]=0;
+ c.beliefs=Object.assign(d.beliefs,c.beliefs||{});
+ c.device=Object.assign(d.device,c.device||{});
+ c.dossier=Object.assign(d.dossier,c.dossier||{});
+ return c;
+}
+
+/* ---------- derived stats ---------- */
+function skillTotal(c,k){return (c.skills[k]||0)+c.bonuses.filter(b=>b.skill===k).reduce((a,b)=>a+b.delta,0)}
+function D(c){
+ const eq=c.items.filter(i=>i.equipped), sum=f=>eq.reduce((a,i)=>a+(+i[f]||0),0);
+ const con=skillTotal(c,'con'), att=skillTotal(c,'att');
+ const hpMax=6+2*con+sum('oz'), obMax=sum('ob');
+ const hp=clamp(hpMax-c.hpLost,0,hpMax), ob=clamp(obMax-c.armorLost,0,obMax);
+ const load=sum('weight'), cap=8+2*con;
+ const over=load>2*cap?2:load>cap?1:0, overPen=[0,-2,-4][over];
+ const wi=c.wounds.lastIndexOf(true), woundPen=wi<0?0:WOUNDS[wi].pen;
+ const pos=c.position, posMove=pos==='sit'?1:pos==='lie'?2:0;
+ const pzBase=8+att+sum('pz')+overPen;
+ const pzMelee=pzBase+(pos==='sit'?-4:pos==='lie'?-8:0);
+ const pzRanged=pzBase+(pos==='lie'?2:0);
+ return {hpMax,obMax,hp,ob,load,cap,over,overPen,woundPen,su:sum('su'),
+  pz:pzBase,pzMelee,pzRanged,speed:Math.max(0,6-over-posMove),init:skillTotal(c,'agi'),
+  willMax:Math.max(0,skillTotal(c,'wil')),used:SKILLS.reduce((a,s)=>a+(c.skills[s.k]||0),0)};
+}
+const balText=b=>b>=9?'Поступает рационально':b>=6?'Лёгкое напряжение':b>=3?'Подвержен эмоциям':b>=1?'На грани срыва':'Показывает настоящее лицо';
+const repText=v=>v>=10?'Полное доверие':v>=6?'Союзники':v>=3?'Партнёры':v>-3?'Безразличие':v>-6?'Противники':v>-10?'Вражда':'Абсолютная вражда';
+const fameText=v=>v>=10?'Главная фигура города':v>=8?'Город следит за каждым шагом':v>=5?'Вы на слуху':v>=3?'Некоторые следят за вами':v>=1?'Почти незаметны':'О вас не вспоминают';
+
+/* ---------- state & storage ---------- */
+let chars={}, cur=null, tab='agent', ui={dmg:1,edit:null}, dirty=false;
+let db=null, col=null, mode='local', writing=false, pending=false, saveTimer=null, readOnly=false;
+const LS='tvarikoni.v1';
+function lsLoad(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o&&o.chars){chars=o.chars;cur=o.cur}}catch(e){}}
+function lsSave(){try{localStorage.setItem(LS,JSON.stringify({chars,cur}))}catch(e){}}
+function C(){return chars[cur]}
+function setSync(t,warn){const s=document.getElementById('sync');s.textContent=t;s.classList.toggle('warn',!!warn)}
+
+function ensureChar(){
+ const ids=Object.keys(chars);
+ if(!ids.length){const c=newChar();c._auto=true;chars[c.id]=c;cur=c.id;return c}
+ if(!chars[cur]) cur=ids.sort((a,b)=>(chars[b].updated||0)-(chars[a].updated||0))[0];
+ return chars[cur];
+}
+function save(){
+ const c=C(); if(!c) return; delete c._auto; c.updated=Date.now(); dirty=true; lsSave();
+ if(mode!=='db'||readOnly){ if(mode!=='db') setSync('Сохранено на устройстве'); dirty=false; return; }
+ setSync('Сохраняю…'); clearTimeout(saveTimer); saveTimer=setTimeout(flush,600);
+}
+async function flush(){
+ if(writing){pending=true;return}
+ const c=C(); if(!c) return; writing=true; pending=false;
+ try{ await col.doc(c.id).set(clone(c)); setSync('Синхронизировано'); }
+ catch(e){
+  if(e&&e.code==='unavailable'){ setTimeout(flush,800+Math.random()*800); }
+  else if(e&&e.code==='invalid_argument'){ readOnly=true; setSync('Только просмотр',true); }
+  else if(e&&e.code==='quota_exceeded'){ setSync('Хранилище заполнено',true); }
+  else setSync('Не сохранилось',true);
+ }
+ writing=false; if(pending){flush();return} dirty=false;
+}
+async function remove(id){
+ delete chars[id]; if(cur===id) cur=null; ensureChar(); lsSave();
+ if(mode==='db'){ try{await col.doc(id).delete()}catch(e){} save(); } render();
+}
+function initDb(){
+ if(!window.claude||!window.claude.use){ mode='local'; setSync('Сохранено на устройстве'); return; }
+ window.claude.use('db').then(d=>{
+  if(!d){ mode='local'; setSync('Сохранено на устройстве'); return; }
+  db=d; col=db.collection('characters'); let first=true;
+  col.onSnapshot(snap=>{
+   if(snap.metadata.fromCache && first && snap.empty) return;
+   const remote={}; snap.docs.forEach(doc=>{ if(doc.exists) remote[doc.id]=normalize(clone(doc.data())) });
+   if(first){
+    first=false; mode='db';
+    // carry over local-only sheets (made before sync came up)
+    for(const id in chars) if(!remote[id]&&!chars[id]._auto) { remote[id]=chars[id]; col.doc(id).set(clone(chars[id])).catch(()=>{}); }
+    chars=remote; ensureChar(); lsSave(); setSync('Синхронизировано'); render(); return;
+   }
+   let changed=false;
+   for(const id in remote){ if(id===cur&&(dirty||writing)) continue; if(JSON.stringify(remote[id])!==JSON.stringify(chars[id])){chars[id]=remote[id];changed=true} }
+   for(const id in chars){ if(!remote[id]&&id!==cur){delete chars[id];changed=true} }
+   if(changed){ ensureChar(); lsSave(); if(!isTyping()) render(); }
+  },err=>{ mode='local'; setSync('Синхронизация недоступна',true); });
+ });
+}
+const isTyping=()=>{const a=document.activeElement;return a&&(a.tagName==='TEXTAREA'||(a.tagName==='INPUT'&&a.type==='text'))};
+
+/* ---------- log ---------- */
+function log(s){const c=C();const t=new Date();c.log.unshift({t:t.toTimeString().slice(0,5),s});c.log=c.log.slice(0,40)}
+
+/* ---------- rendering ---------- */
+function render(){
+ const c=ensureChar();
+ const sel=document.getElementById('charSel');
+ sel.innerHTML=Object.values(chars).sort((a,b)=>a.name.localeCompare(b.name,'ru')).map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(x.name||'Без имени')}</option>`).join('')+'<option value="__new">+ Новый агент</option>';
+ document.getElementById('tabs').innerHTML=TABS.map(([k,n])=>`<button role="tab" aria-selected="${tab===k}" data-act="tab" data-v="${k}">${n}</button>`).join('');
+ const d=D(c);
+ document.getElementById('main').innerHTML=({agent:vAgent,skills:vSkills,beliefs:vBeliefs,gear:vGear,dossier:vDossier}[tab])(c,d);
+ if(R.open) renderSheet();
+}
+function stepper(act,val,data,min,max){
+ return `<span class="step"><button data-act="${act}" data-d="-1" ${data} ${val<=min?'disabled':''} aria-label="Меньше">−</button><span>${val}</span><button data-act="${act}" data-d="1" ${data} ${val>=max?'disabled':''} aria-label="Больше">+</button></span>`;
+}
+
+function vAgent(c,d){
+ let cells='';
+ for(let i=0;i<d.hpMax;i++) cells+=`<i class="cell ${i<d.hp?'':'lost'}"></i>`;
+ if(d.obMax){cells+='<span class="gap"></span>';for(let i=0;i<d.obMax;i++) cells+=`<i class="cell ob ${i<d.ob?'':'lost'}"></i>`}
+ const wrow=WOUNDS.map((w,i)=>`<span class="wl"><button class="wpip w${i+1} ${c.wounds[i]?'on':''}" data-act="wound" data-i="${i}" aria-pressed="${c.wounds[i]}" aria-label="${w.n} ранение">${w.pen}</button>${w.n}</span>`).join('');
+ const wi=c.wounds.lastIndexOf(true);
+ const pens=[];
+ if(d.woundPen) pens.push(`<span class="pen">Ранение ${d.woundPen} к броскам · СЛ лечения ${WOUNDS[wi].dc}</span>`);
+ if(d.over) pens.push(`<span class="pen sand">Перегружен: ${d.overPen} к атаке и защите</span>`);
+ const toks=[0,1].map(i=>`<span class="tok ${i<c.tokens?'on':''}"></span>`).join('')+(c.tokens>2?` <b>+${c.tokens-2}</b>`:'');
+ return `
+ <section class="blk card">
+  ${c.dead?`<div class="dead">Агент погиб. <button class="btn sm danger" data-act="revive">Отменить</button></div>`:''}
+  <div class="trackhead">
+   <div><span class="big" style="color:var(--water)">${d.hp}</span><span class="muted">/${d.hpMax}</span><div class="lbl">Очки защиты</div></div>
+   <div><span class="big" style="color:var(--sand)">${d.ob}</span><span class="muted">/${d.obMax}</span><div class="lbl">Очки брони</div></div>
+   ${d.su?`<div><span class="big">${d.su}</span><div class="lbl">Сопротивление урону</div></div>`:''}
+  </div>
+  <div class="track">${cells}</div>
+  <div class="wrow">${wrow}</div>
+  ${c.wounds[2]&&c.mortalMin!=null?`<p class="small" style="color:var(--blood);margin:0 0 8px">Смертельное ранение: без помощи агент погибнет через ${c.mortalMin} мин игрового времени. Любой новый урон, дошедший до ранений, убьёт его.</p>`:''}
+  ${pens.length?`<div class="row" style="margin-bottom:10px">${pens.join('')}</div>`:''}
+  <div class="row">
+   ${stepper('dmg',ui.dmg,'',1,50)}
+   <button class="btn pri" data-act="take-dmg" ${c.dead?'disabled':''}>Получить урон</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+   <button class="btn sm" data-act="heal1">+1 ОЗ</button>
+   <button class="btn sm" data-act="rest">Отдых 10 мин</button>
+   <button class="btn sm" data-act="repair">Восстановить броню</button>
+  </div>
+  <p class="hint">Урон сначала снимает ОЗ, затем ОБ, затем наносит ранение. Нажмите на кружок ранения, чтобы отметить лечение.</p>
+ </section>
+
+ <section class="blk card">
+  <div class="bal">
+   <div class="balnum">${c.balance}</div>
+   <div>
+    <b>Равновесие</b>
+    <div class="meter">${Array.from({length:10},(_,i)=>`<i class="${i<c.balance?'on':''}"></i>`).join('')}</div>
+    <div class="small muted">${balText(c.balance)}</div>
+   </div>
+  </div>
+  <div class="row" style="margin-top:10px">
+   ${stepper('bal',c.balance,'',0,10)}
+   <span class="small muted">Ранение отнимает 2. В проверке можно потратить 1 за +3.</span>
+  </div>
+ </section>
+
+ <section class="blk card">
+  <div class="row"><b>Жетоны профессионализма</b><span class="spacer"></span>${toks}</div>
+  <div class="small muted" style="margin:4px 0 8px">${c.pro.length?'Профессиональные: '+c.pro.map(k=>SK[k].n).join(', '):'Отметьте два профессиональных навыка во вкладке «Навыки».'}</div>
+  <div class="row"><button class="btn sm" data-act="tok-use" ${c.tokens<1?'disabled':''}>Потратить</button><button class="btn sm" data-act="new-day">Новый день: 2 жетона</button><span class="spacer"></span>${d.willMax?`<span class="small">Очки Воли</span> ${stepper('will',d.willMax-c.willUsed,'',0,d.willMax)}`:''}</div>
+ </section>
+
+ <section class="blk">
+  <div class="stats">
+   <div class="stat"><b>${d.pz}</b><small>Пассивная защита</small></div>
+   <div class="stat"><b>${d.init}</b><small>Инициатива (Ловкость)</small></div>
+   <div class="stat"><b>${d.speed} м</b><small>Скорость за ход</small></div>
+   <div class="stat"><b>${d.load}/${d.cap}</b><small>Груз</small></div>
+   <div class="stat"><b>${d.pzMelee}</b><small>ПЗ от ближних атак</small></div>
+   <div class="stat"><b>${d.pzRanged}</b><small>ПЗ от дальних атак</small></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+   <span class="small muted">Положение</span>
+   <span class="seg">${[['stand','Стоя'],['sit','Сидя'],['lie','Лёжа']].map(([k,n])=>`<button data-act="pos" data-v="${k}" aria-pressed="${c.position===k}">${n}</button>`).join('')}</span>
+  </div>
+ </section>
+
+ <section class="blk card">
+  <div class="row"><h2 style="margin:0">Журнал</h2><span class="spacer"></span>${c.log.length?'<button class="btn sm ghost" data-act="log-clear" data-confirm>Очистить</button>':''}</div>
+  <div class="log" style="margin-top:6px">${c.log.length?c.log.map(l=>`<div><time>${l.t}</time>${esc(l.s)}</div>`).join(''):'<div class="empty">Здесь появятся броски и урон.</div>'}</div>
+ </section>`;
+}
+
+function vSkills(c,d){
+ const left=BUDGET-d.used, groups=[...new Set(SKILLS.map(s=>s.g))];
+ return `
+ <section class="blk card">
+  <div class="budget">
+   <b>${d.used}/${BUDGET}</b><span class="small muted">очков навыков${c.creation?(left>0?`, осталось ${left}`:left<0?`, перерасход ${-left}`:', всё распределено'):''}</span>
+   <div class="bar ${left<0?'over':''}"><i style="width:${clamp(d.used/BUDGET*100,0,100)}%"></i></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+   <button class="sw" data-act="creation" aria-pressed="${c.creation}" aria-label="Режим создания"></button>
+   <span class="small">${c.creation?'Режим создания: базовые значения можно менять (0–6).':'Навыки зафиксированы. Изменения идут через убеждения.'}</span>
+  </div>
+  <p class="hint">★ — профессиональный навык (ровно два). Жетон профессионализма делает его проверку успешной.</p>
+ </section>
+ ${groups.map(g=>`<section class="blk card"><h2>${g}</h2>${SKILLS.filter(s=>s.g===g).map(s=>{
+   const base=c.skills[s.k], tot=skillTotal(c,s.k), diff=tot-base, isPro=c.pro.includes(s.k);
+   return `<div class="sk">
+    <button class="star ${isPro?'on':''}" data-act="pro" data-k="${s.k}" aria-pressed="${isPro}" aria-label="Профессиональный навык">★</button>
+    <div class="skn">${s.n}</div>
+    <div class="ctl">${c.creation?stepper('skill',base,`data-k="${s.k}"`,0,Math.min(SKILL_CAP,base+Math.max(0,left))).replace('class="step"','class="step cmp"')+(diff?`<span class="skv" style="font-size:15px">=${tot}</span>`:''):`<span class="skv">${tot}${diff?`<sup class="${diff<0?'neg':''}">${sgn(diff)}</sup>`:''}</span>`}<button class="dice" data-act="roll-open" data-k="${s.k}" aria-label="Бросок: ${s.n}">d20</button></div>
+    <div class="skh">${s.h}</div>
+   </div>`}).join('')}</section>`).join('')}`;
+}
+
+function skillOpts(sel){return '<option value="">— навык —</option>'+SKILLS.map(s=>`<option value="${s.k}" ${sel===s.k?'selected':''}>${s.n}</option>`).join('')}
+function vBeliefs(c){
+ const B=c.beliefs, freed=B.professional.filter(p=>p.renounced).length;
+ while(B.acquired.length<freed) B.acquired.push({text:'',effect:''});
+ return `
+ <section class="blk card">
+  <h2>Личные убеждения</h2>
+  <p class="hint" style="margin-top:-4px">Ядро личности. Каждое ограничивает агента и даёт одну способность.</p>
+  ${B.personal.map((p,i)=>`<div class="bel">
+   <input class="f" data-bind="beliefs.personal.${i}.text" value="${esc(p.text)}" placeholder="Убеждение ${i+1}">
+   <input class="f" style="margin-top:6px" data-bind="beliefs.personal.${i}.ability" value="${esc(p.ability)}" placeholder="Способность за это убеждение">
+  </div>`).join('')}
+ </section>
+
+ <section class="blk card">
+  <h2>Профессиональные убеждения</h2>
+  <p class="hint" style="margin-top:-4px">Защищают равновесие. Отказ в фазе отдыха даёт +2 к выбранному навыку и освобождает место.</p>
+  ${B.professional.map((p,i)=>`<div class="bel ${p.renounced?'gone':''}">
+   <input class="f" data-bind="beliefs.professional.${i}.text" value="${esc(p.text)}" placeholder="Убеждение ${i+1}" ${p.renounced?'disabled':''}>
+   <div class="row" style="margin-top:6px">
+    <span class="small muted">Награда за отказ: +2 к</span>
+    <select class="f" style="width:auto;flex:1" data-bind="beliefs.professional.${i}.reward" data-rerender ${p.renounced?'disabled':''}>${skillOpts(p.reward)}</select>
+    ${p.renounced?'<span class="tag">Отказался</span>':`<button class="btn sm" data-act="renounce" data-i="${i}" data-confirm ${p.reward?'':'disabled'}>Отказаться</button>`}
+   </div>
+  </div>`).join('')}
+ </section>
+
+ <section class="blk card">
+  <h2>Приобретённые убеждения</h2>
+  ${freed?B.acquired.slice(0,freed).map((a,i)=>`<div class="bel">
+   <input class="f" data-bind="beliefs.acquired.${i}.text" value="${esc(a.text)}" placeholder="Убеждение">
+   <input class="f" style="margin-top:6px" data-bind="beliefs.acquired.${i}.effect" value="${esc(a.effect)}" placeholder="Бонус к навыку или усиление способности">
+  </div>`).join(''):'<div class="empty">Место появится после отказа от профессионального убеждения.</div>'}
+ </section>
+
+ <section class="blk card">
+  <div class="row"><h2 style="margin:0">Навязанные убеждения</h2><span class="spacer"></span><button class="btn sm" data-act="imp-add">Добавить</button></div>
+  <p class="hint">Появляются от пыток, мистики или взлома. Отказ навсегда снижает один навык на 2.</p>
+  ${c.beliefs.imposed.length?c.beliefs.imposed.map((p,i)=>`<div class="bel ${p.renounced?'gone':''}">
+   <input class="f" data-bind="beliefs.imposed.${i}.text" value="${esc(p.text)}" placeholder="Что внушено агенту" ${p.renounced?'disabled':''}>
+   <div class="row" style="margin-top:6px">
+    ${p.renounced?`<span class="tag">Отказался: −2 ${SK[p.skill]?.n||''}</span>`:`<span class="small muted">Цена отказа: −2 к</span><select class="f" style="width:auto;flex:1" data-bind="beliefs.imposed.${i}.skill" data-rerender>${skillOpts(p.skill)}</select><button class="btn sm" data-act="imp-renounce" data-i="${i}" data-confirm ${p.skill?'':'disabled'}>Отказаться</button>`}
+    <button class="btn sm ghost" data-act="imp-del" data-i="${i}" data-confirm aria-label="Удалить">✕</button>
+   </div>
+  </div>`).join(''):'<div class="empty">Нет.</div>'}
+ </section>
+
+ <section class="blk card">
+  <h2>Изменения навыков</h2>
+  ${c.bonuses.length?c.bonuses.map((b,i)=>`<div class="row" style="padding:6px 0"><b>${sgn(b.delta)} ${SK[b.skill].n}</b><span class="small muted">${esc(b.src)}</span><span class="spacer"></span><button class="btn sm ghost" data-act="bonus-del" data-i="${i}" data-confirm>Отменить</button></div>`).join(''):'<div class="empty">Пока нет. Появятся после отказа от убеждений.</div>'}
+ </section>`;
+}
+
+function vGear(c,d){
+ const pct=clamp(d.load/Math.max(1,d.cap*2)*100,0,100);
+ const dev=c.device;
+ return `
+ <section class="blk card">
+  <div class="row"><b>Груз ${d.load} из ${d.cap}</b><span class="spacer"></span><span class="small ${d.over?'':'muted'}" style="${d.over?'color:var(--blood)':''}">${['В норме','Перегружен: −1 м, −2 атака/защита','Двойной перегруз: −2 м, −4 атака/защита'][d.over]}</span></div>
+  <div class="loadbar o${d.over}" style="margin-top:8px"><i style="width:${pct}%"></i></div>
+  <p class="hint">Шкала до двойного предела. Считаются только экипированные предметы.</p>
+ </section>
+
+ <section class="blk card">
+  <div class="row"><h2 style="margin:0">Снаряжение</h2><span class="spacer"></span><button class="btn sm" data-act="item-add">Добавить</button></div>
+  <div style="margin-top:10px">${c.items.length?c.items.map(it=>{
+   const chips=[];
+   if(+it.dmg) chips.push(`Урон ${it.dmg}`); if(it.range) chips.push(`Дальность: ${esc(it.range)}`);
+   if(+it.ob) chips.push(`ОБ ${sgn(+it.ob)}`); if(+it.pz) chips.push(`ПЗ ${sgn(+it.pz)}`); if(+it.su) chips.push(`СУ ${sgn(+it.su)}`); if(+it.oz) chips.push(`ОЗ ${sgn(+it.oz)}`);
+   if(it.autoFire) chips.push('Автоматическое'); chips.push(`Вес ${it.weight}`);
+   const ed=ui.edit===it.id;
+   return `<div class="item">
+    <div class="row"><button class="sw" data-act="item-eq" data-id="${it.id}" aria-pressed="${it.equipped}" aria-label="Экипирован"></button><span class="nm">${esc(it.name)}</span><button class="btn sm ghost" data-act="item-edit" data-id="${it.id}">${ed?'Готово':'Изменить'}</button></div>
+    <div class="chips">${chips.map(x=>`<span class="chip">${x}</span>`).join('')}</div>
+    ${+it.ammoMax?`<div class="row" style="margin-top:8px"><span class="ammo">${Array.from({length:+it.ammoMax},(_,i)=>`<i class="${i<it.ammo?'':'off'}"></i>`).join('')}</span><span class="small">${it.ammo}/${it.ammoMax}</span><span class="spacer"></span><button class="btn sm" data-act="attack" data-id="${it.id}">Атаковать</button><button class="btn sm" data-act="reload" data-id="${it.id}">Перезарядить</button></div>`:(+it.dmg?`<div class="row" style="margin-top:8px"><span class="spacer"></span><button class="btn sm" data-act="attack" data-id="${it.id}">Атаковать</button></div>`:'')}
+    ${it.notes&&!ed?`<div class="small muted" style="margin-top:6px">${esc(it.notes)}</div>`:''}
+    ${ed?`<label class="fl">Название</label><input class="f" data-bind="items.#${it.id}.name" value="${esc(it.name)}">
+     <div class="grid2" style="margin-top:8px">
+      ${[['weight','Вес'],['dmg','Урон'],['ammoMax','Боезапас'],['ob','ОБ'],['pz','ПЗ'],['su','СУ'],['oz','ОЗ']].map(([f,n])=>`<label>${n}<input class="f" type="number" inputmode="numeric" data-num data-bind="items.#${it.id}.${f}" data-rerender value="${+it[f]||0}"></label>`).join('')}
+      <label>Дальность<input class="f" data-bind="items.#${it.id}.range" value="${esc(it.range)}"></label>
+     </div>
+     <div class="row" style="margin-top:8px"><button class="sw" data-act="item-auto" data-id="${it.id}" aria-pressed="${!!it.autoFire}" aria-label="Автоматическое оружие"></button><span class="small">Автоматическое оружие</span></div>
+     <label class="fl">Описание</label><textarea class="f" data-bind="items.#${it.id}.notes">${esc(it.notes)}</textarea>
+     <div class="row" style="margin-top:8px"><span class="spacer"></span><button class="btn sm danger" data-act="item-del" data-id="${it.id}" data-confirm>Удалить предмет</button></div>`:''}
+   </div>`}).join(''):'<div class="empty">Пусто. Добавьте первый предмет.</div>'}</div>
+ </section>
+
+ <section class="blk card">
+  <div class="row"><b>Накопления</b><span class="spacer"></span><input class="f num" type="number" inputmode="numeric" data-num data-bind="water" value="${c.water}" aria-label="Литры воды"><span class="small muted">л воды</span></div>
+  <p class="hint">Крупные траты могут привлечь внимание.</p>
+ </section>
+
+ <section class="blk card">
+  <div class="row"><h2 style="margin:0">Способности</h2><span class="spacer"></span><button class="btn sm" data-act="ab-add">Добавить</button></div>
+  ${c.beliefs.personal.filter(p=>p.ability).map(p=>`<div class="bel"><b>${esc(p.ability)}</b><div class="small muted">За убеждение: ${esc(p.text||'—')}</div></div>`).join('')}
+  ${c.abilities.map((a,i)=>`<div class="bel"><input class="f" data-bind="abilities.${i}.name" value="${esc(a.name)}" placeholder="Название"><textarea class="f" style="margin-top:6px" data-bind="abilities.${i}.text" placeholder="Что делает">${esc(a.text)}</textarea><div class="row" style="margin-top:6px"><span class="spacer"></span><button class="btn sm ghost" data-act="ab-del" data-i="${i}" data-confirm>Удалить</button></div></div>`).join('')}
+  ${!c.abilities.length&&!c.beliefs.personal.some(p=>p.ability)?'<div class="empty">Особенность персонажа и способности за личные убеждения.</div>':''}
+ </section>
+
+ <section class="blk card">
+  <div class="row"><button class="sw" data-act="dev-on" aria-pressed="${dev.on}" aria-label="Устройство хакера"></button><h2 style="margin:0">Устройство хакера</h2></div>
+  ${dev.on?`
+   <label class="fl">Устройство</label><input class="f" data-bind="device.name" value="${esc(dev.name)}" placeholder="Например, коммуникатор-взломщик">
+   <div class="twocol" style="margin-top:10px">
+    <div><div class="small muted">Мощность ${dev.powerMax-dev.powerUsed}/${dev.powerMax}</div>${stepper('dev-pow',dev.powerMax-dev.powerUsed,'',0,dev.powerMax)}</div>
+    <div><div class="small muted">Анонимность ${dev.anonMax-dev.anonUsed}/${dev.anonMax}</div>${stepper('dev-anon',dev.anonMax-dev.anonUsed,'',0,dev.anonMax)}</div>
+   </div>
+   <div class="grid2" style="margin-top:10px">
+    <label>Макс. мощность<input class="f" type="number" data-num data-bind="device.powerMax" data-rerender value="${dev.powerMax}"></label>
+    <label>Макс. анонимность<input class="f" type="number" data-num data-bind="device.anonMax" data-rerender value="${dev.anonMax}"></label>
+   </div>
+   <div class="row" style="margin-top:10px"><button class="btn sm" data-act="dev-mask">Маскировка: анонимность полностью</button><button class="btn sm" data-act="dev-exit">Выход из системы</button></div>
+   <h3>Джины</h3>
+   ${dev.djinns.map((j,i)=>`<div class="bel"><input class="f" data-bind="device.djinns.${i}.name" value="${esc(j.name)}" placeholder="Название джина"><div class="grid2" style="margin-top:6px"><label>Хакерство<input class="f" type="number" data-num data-bind="device.djinns.${i}.bonus" value="${j.bonus}"></label><label>Стоимость<input class="f" type="number" data-num data-bind="device.djinns.${i}.cost" value="${j.cost}"></label><label>СЛ противост.<input class="f" type="number" data-num data-bind="device.djinns.${i}.dc" value="${j.dc}"></label></div><textarea class="f" style="margin-top:6px" data-bind="device.djinns.${i}.text" placeholder="Что делает">${esc(j.text)}</textarea><div class="row" style="margin-top:6px">${j.active?`<span class="tag">Активен</span><button class="btn sm" data-act="djinn-recall" data-i="${i}">Отозвать</button>`:`<button class="btn sm" data-act="djinn-send" data-i="${i}">Отправить (−${j.cost} мощн.)</button>`}<span class="spacer"></span><button class="btn sm ghost" data-act="djinn-del" data-i="${i}" data-confirm>Удалить</button></div></div>`).join('')}
+   <button class="btn sm" data-act="djinn-add">Добавить джина</button>
+   <p class="hint">В проверке Хакерства можно тратить мощность: +3 за очко.</p>`:'<p class="hint">Включите, если агент работает с информационными пирамидами.</p>'}
+ </section>`;
+}
+
+function vDossier(c){
+ return `
+ <section class="blk card">
+  <label class="fl" style="margin-top:0">Имя агента</label><input class="f" data-bind="name" data-rerender-name value="${esc(c.name)}">
+  <label class="fl">Игрок</label><input class="f" data-bind="player" value="${esc(c.player)}">
+  <label class="fl">Легенда: под кем агент входит в город</label><input class="f" data-bind="concept" value="${esc(c.concept)}" placeholder="Каста, род занятий">
+  <label class="fl">Я — </label><textarea class="f" data-bind="dossier.self">${esc(c.dossier.self)}</textarea>
+  <label class="fl">Предыстория: почему иду в город и что на кону</label><textarea class="f" style="min-height:110px" data-bind="dossier.backstory">${esc(c.dossier.backstory)}</textarea>
+ </section>
+ <section class="blk card">
+  <h2>Мои тайны</h2>
+  ${SECRETS.map((q,i)=>`<label class="fl">${q}</label><textarea class="f" data-bind="dossier.secrets.${i}">${esc(c.dossier.secrets[i])}</textarea>`).join('')}
+ </section>
+ <section class="blk card">
+  <div class="row"><h2 style="margin:0">Репутация</h2><span class="spacer"></span><button class="btn sm" data-act="rep-add">Добавить</button></div>
+  ${c.rep.length?c.rep.map((r,i)=>`<div class="bel"><div class="row"><input class="f" style="flex:1;min-width:140px" data-bind="rep.${i}.name" value="${esc(r.name)}" placeholder="Организация или группа">${stepper('rep',r.value,`data-i="${i}"`,-10,10)}</div><div class="row" style="margin-top:4px"><span class="small muted">${repText(r.value)}</span><span class="spacer"></span><button class="btn sm ghost" data-act="rep-del" data-i="${i}" data-confirm>Удалить</button></div></div>`).join(''):'<div class="empty">Добавьте касты и организации, с которыми столкнулся агент.</div>'}
+ </section>
+ <section class="blk card">
+  <div class="row"><b>Известность</b><span class="spacer"></span>${stepper('fame',c.fame,'',0,10)}</div>
+  <div class="small muted" style="margin-top:4px">${fameText(c.fame)}. Чем выше, тем сильнее поступки меняют репутацию.</div>
+  <div class="row" style="margin-top:14px"><b>Надежда города</b><span class="spacer"></span>${stepper('hope',c.hope,'',0,100)}</div>
+ </section>
+ <section class="blk card">
+  <div class="row"><button class="btn sm" data-act="export">Скопировать лист (JSON)</button><button class="btn sm" data-act="import">Вставить лист</button><span class="spacer"></span><button class="btn sm danger" data-act="del-char" data-confirm>Удалить агента</button></div>
+  <textarea class="f" id="io" style="margin-top:10px;display:none" placeholder="Вставьте JSON листа и нажмите «Вставить лист» ещё раз"></textarea>
+ </section>`;
+}
+
+/* ---------- roller ---------- */
+const R={open:false,skill:'sho',mod:0,dc:'',attack:false,atype:'normal',aim:2,light:0,cover:0,weapon:'',power:0,res:null};
+function openRoll(k,weaponId){
+ Object.assign(R,{open:true,res:null,mod:0,power:0});
+ if(k) R.skill=k;
+ if(weaponId){const w=C().items.find(i=>i.id===weaponId);R.attack=true;R.weapon=weaponId;R.skill=+w.ammoMax||w.range?'sho':'agi';R.atype='normal'}
+ else R.attack=false;
+ renderSheet();document.getElementById('sheet').classList.add('open');document.getElementById('scrim').classList.add('open');
+}
+function closeRoll(){R.open=false;document.getElementById('sheet').classList.remove('open');document.getElementById('scrim').classList.remove('open')}
+function rollParts(c,d){
+ const ranged=R.skill==='sho', p=[[SK[R.skill].n,skillTotal(c,R.skill)]];
+ if(d.woundPen) p.push(['Ранение',d.woundPen]);
+ if(R.attack){
+  if(d.overPen) p.push(['Перегруз',d.overPen]);
+  const at={heavy:['Тяжёлая атака',4],auto:['Автоматическая',-2],aimed:['Прицельная',-R.aim],back:['Атака в спину',4],blank:['Стрельба в упор',-4]}[R.atype];
+  if(at&&!(R.atype==='blank'&&!ranged)) p.push(at);
+  if(R.light) p.push(['Освещение',R.light]);
+  if(R.cover) p.push(['Укрытие цели',R.cover]);
+  const pos=c.position; if(pos!=='stand') p.push(['Своё положение',ranged?(pos==='sit'?1:2):(pos==='sit'?-4:-8)]);
+ }
+ if(R.skill==='hak'&&c.device.on&&R.power) p.push(['Мощность',3*R.power]);
+ if(+R.mod) p.push(['Модификатор',+R.mod]);
+ return p;
+}
+function renderSheet(){
+ const c=C(),d=D(c),weapons=c.items.filter(i=>i.equipped&&+i.dmg);
+ const w=c.items.find(i=>i.id===R.weapon);
+ const p=rollParts(c,d), bonus=p.reduce((a,x)=>a+x[1],0);
+ const pro=c.pro.includes(R.skill), devFree=c.device.powerMax-c.device.powerUsed;
+ let res='';
+ if(R.res){const r=R.res;
+  res=`<div class="res ${r.win===true?'win':r.win===false?'fail':''}">
+   <div class="row"><span class="tot">${r.total}</span><span class="spacer"></span>${r.win!=null?`<span class="verdict">${r.auto?'Успех (жетон)':r.win?'Успех':'Провал'}</span>`:''}</div>
+   <div class="parts">d20: ${r.d}${r.parts.map(x=>` ${x[1]<0?'−':'+'} ${Math.abs(x[1])} ${x[0]}`).join('')}${r.dc?` · СЛ ${r.dc}`:''}</div>
+   ${r.dmg?`<div style="margin-top:6px"><b>Урон при попадании: ${r.dmg}</b></div>`:''}
+   <div class="row" style="margin-top:10px">
+    <button class="btn sm" data-act="r-boost" ${c.balance<1||r.auto?'disabled':''}>+3 за 1 равновесия</button>
+    ${pro?`<button class="btn sm" data-act="r-token" ${c.tokens<1||r.auto?'disabled':''}>Жетон: автоуспех</button>`:''}
+   </div>
+  </div>`;}
+ document.getElementById('sheet').innerHTML=`
+  <div class="row"><h2 style="margin:0">Проверка</h2><span class="spacer"></span><button class="btn sm ghost" data-act="r-close">Закрыть</button></div>
+  <div class="twocol" style="margin-top:10px">
+   <label class="small muted">Навык<select class="f" data-rbind="skill">${SKILLS.map(s=>`<option value="${s.k}" ${R.skill===s.k?'selected':''}>${s.n} (${skillTotal(c,s.k)})${c.pro.includes(s.k)?' ★':''}</option>`).join('')}</select></label>
+   <label class="small muted">Сложность (СЛ)<input class="f" type="number" inputmode="numeric" data-rbind="dc" value="${R.dc}" placeholder="по желанию"></label>
+  </div>
+  <div class="row" style="margin-top:10px"><span class="small muted">Модификатор</span>${stepper('r-mod',+R.mod,'',-20,20)}<span class="spacer"></span><button class="sw" data-act="r-attack" aria-pressed="${R.attack}" aria-label="Атака"></button><span class="small">Атака</span></div>
+  ${R.attack?`
+   <div class="twocol" style="margin-top:10px">
+    <label class="small muted">Оружие<select class="f" data-rbind="weapon"><option value="">Без оружия</option>${weapons.map(x=>`<option value="${x.id}" ${R.weapon===x.id?'selected':''}>${esc(x.name)}${+x.ammoMax?` (${x.ammo}/${x.ammoMax})`:''}</option>`).join('')}</select></label>
+    <label class="small muted">Способ<select class="f" data-rbind="atype">${[['normal','Обычная'],['heavy','Тяжёлая (+4, +1 урон)'],['auto','Автоматическая (2×, −2)'],['aimed','Прицельная'],['back','В спину (+4)'],['blank','В упор (−4)']].filter(([k])=>k!=='auto'||(w&&w.autoFire)).map(([k,n])=>`<option value="${k}" ${R.atype===k?'selected':''}>${n}</option>`).join('')}</select></label>
+    ${R.atype==='aimed'?`<label class="small muted">Штраф прицеливания<select class="f" data-rbind="aim">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${R.aim==n?'selected':''}>−${n}</option>`).join('')}</select></label>`:''}
+    <label class="small muted">Освещение<select class="f" data-rbind="light">${[[0,'Нормальное'],[-1,'Тусклый свет −1'],[-4,'Темнота −4'],[-8,'Абсолютная −8']].map(([v,n])=>`<option value="${v}" ${R.light==v?'selected':''}>${n}</option>`).join('')}</select></label>
+    <label class="small muted">Укрытие цели<select class="f" data-rbind="cover">${[[0,'Нет'],[-1,'Лёгкое −1'],[-2,'Среднее −2'],[-4,'Надёжное −4'],[-6,'Почти полное −6']].map(([v,n])=>`<option value="${v}" ${R.cover==v?'selected':''}>${n}</option>`).join('')}</select></label>
+   </div>`:''}
+  ${R.skill==='hak'&&c.device.on?`<div class="row" style="margin-top:10px"><span class="small muted">Мощность устройства (+3 за очко, доступно ${devFree})</span>${stepper('r-pow',R.power,'',0,devFree)}</div>`:''}
+  <div class="row" style="margin-top:14px"><span class="small muted">Итого бонус ${sgn(bonus)}</span><span class="spacer"></span><button class="btn pri" data-act="r-roll" ${c.dead?'disabled':''}>Бросить d20</button></div>
+  ${res}`;
+}
+function doRoll(){
+ const c=C(),d=D(c),w=c.items.find(i=>i.id===R.weapon);
+ if(R.attack&&w&&+w.ammoMax){const need=R.atype==='auto'?2:1;if(w.ammo<need){R.res=null;renderSheet();toast('Нет патронов — перезарядитесь');return}w.ammo-=need}
+ if(R.power){c.device.powerUsed+=R.power}
+ const parts=rollParts(c,d), rolls=R.attack&&R.atype==='auto'?2:1, out=[];
+ for(let n=0;n<rolls;n++){const dd=rnd(20);out.push({d:dd,total:dd+parts.reduce((a,x)=>a+x[1],0)})}
+ const dc=+R.dc||0, r=out[0];
+ R.res={d:out.map(o=>o.d).join(' и '),total:out.map(o=>o.total).join(' / '),raw:out,parts:clone(parts),dc,win:dc?r.total>=dc:null,auto:false,
+  dmg:R.attack&&w?(+w.dmg+(R.atype==='heavy'?1:0)):0};
+ log(`${SK[R.skill].n}: ${R.res.total}${dc?` против СЛ ${dc} — ${R.res.win?'успех':'провал'}`:''}${R.attack&&w?` (${w.name})`:''}`);
+ R.power=0; save(); renderSheet(); if(tab==='agent'||tab==='gear') render();
+}
+function toast(t){setSync(t,true);setTimeout(()=>setSync(mode==='db'?'Синхронизировано':'Сохранено на устройстве'),2500)}
+
+/* ---------- actions ---------- */
+function damage(n){
+ const c=C(),d=D(c); if(c.dead) return;
+ let rem=Math.max(0,n-d.su), msg=[`Урон ${n}${d.su?` (−${d.su} СУ)`:''}`];
+ const a=Math.min(rem,d.hp); c.hpLost+=a; rem-=a;
+ const b=Math.min(rem,d.ob); c.armorLost+=b; rem-=b;
+ if(a) msg.push(`−${a} ОЗ`); if(b) msg.push(`−${b} ОБ`);
+ if(rem>0){
+  if(c.wounds[2]){c.dead=true;msg.push('агент погиб')}
+  else{const i=c.wounds.indexOf(false);c.wounds[i]=true;c.balance=Math.max(0,c.balance-2);msg.push(`${WOUNDS[i].n.toLowerCase()} ранение, −2 равновесия`);
+   if(i===2){const x=rnd(6),y=rnd(6);c.mortalMin=40+10*(x+y);msg.push(`умрёт через ${c.mortalMin} мин`)}}
+ }
+ log(msg.join(', '));
+}
+function setPath(obj,path,val){
+ const ks=path.split('.'); let o=obj;
+ for(let i=0;i<ks.length-1;i++){let k=ks[i]; if(k[0]==='#'){o=o.find(x=>x.id===k.slice(1))}else o=o[k]; if(!o) return}
+ o[ks[ks.length-1]]=val;
+}
+function act(a,ds,el){
+ const c=C(); if(!c) return;
+ if(el.hasAttribute('data-confirm')&&!el.dataset.armed){
+  el.dataset.armed='1'; const t=el.textContent; el.textContent='Точно?';
+  setTimeout(()=>{if(el.isConnected){delete el.dataset.armed;el.textContent=t}},3000); return;
+ }
+ const d=D(c), n=+ds.d||0, i=+ds.i;
+ const item=ds.id?c.items.find(x=>x.id===ds.id):null;
+ let rer=true, sv=true;
+ switch(a){
+  case 'tab': tab=ds.v; sv=false; window.scrollTo(0,0); break;
+  case 'dmg': ui.dmg=clamp(ui.dmg+n,1,50); sv=false; break;
+  case 'take-dmg': damage(ui.dmg); break;
+  case 'heal1': c.hpLost=Math.max(0,Math.min(c.hpLost,d.hpMax)-1); log('+1 ОЗ'); break;
+  case 'rest': c.hpLost=0; log('Отдых 10 минут: ОЗ восстановлены'); break;
+  case 'repair': c.armorLost=0; log('Броня восстановлена'); break;
+  case 'wound': c.wounds[i]=!c.wounds[i]; if(!c.wounds[2]) c.mortalMin=null; else if(i===2&&c.mortalMin==null){c.mortalMin=40+10*(rnd(6)+rnd(6))} log(`${WOUNDS[i].n} ранение ${c.wounds[i]?'отмечено':'вылечено'}`); break;
+  case 'revive': c.dead=false; log('Смерть отменена'); break;
+  case 'bal': c.balance=clamp(c.balance+n,0,10); log(`Равновесие: ${c.balance}`); break;
+  case 'will': c.willUsed=clamp(c.willUsed-n,0,d.willMax); break;
+  case 'tok-use': c.tokens=Math.max(0,c.tokens-1); log('Потрачен жетон профессионализма'); break;
+  case 'new-day': c.tokens=2; log('Новый день: 2 жетона'); break;
+  case 'pos': c.position=ds.v; break;
+  case 'log-clear': c.log=[]; break;
+  case 'creation': c.creation=!c.creation; break;
+  case 'skill': c.skills[ds.k]=clamp(c.skills[ds.k]+n,0,SKILL_CAP); break;
+  case 'pro': { const k=ds.k; if(c.pro.includes(k)) c.pro=c.pro.filter(x=>x!==k); else { if(c.pro.length>=2) c.pro.shift(); c.pro.push(k);} break; }
+  case 'renounce': { const p=c.beliefs.professional[i]; p.renounced=true; c.bonuses.push({skill:p.reward,delta:2,src:`Отказ от «${p.text||'проф. убеждения'}»`}); log(`Отказ от профессионального убеждения: +2 ${SK[p.reward].n}`); break; }
+  case 'imp-add': c.beliefs.imposed.push({text:'',skill:'',renounced:false}); break;
+  case 'imp-renounce': { const p=c.beliefs.imposed[i]; p.renounced=true; c.bonuses.push({skill:p.skill,delta:-2,src:`Отказ от навязанного «${p.text||'убеждения'}»`}); log(`Отказ от навязанного убеждения: −2 ${SK[p.skill].n}`); break; }
+  case 'imp-del': c.beliefs.imposed.splice(i,1); break;
+  case 'bonus-del': c.bonuses.splice(i,1); break;
+  case 'item-add': { const it=newItem(); c.items.push(it); ui.edit=it.id; break; }
+  case 'item-del': c.items=c.items.filter(x=>x.id!==ds.id); ui.edit=null; break;
+  case 'item-eq': item.equipped=!item.equipped; break;
+  case 'item-auto': item.autoFire=!item.autoFire; break;
+  case 'item-edit': ui.edit=ui.edit===ds.id?null:ds.id; sv=false; break;
+  case 'reload': item.ammo=+item.ammoMax; log(`Перезарядка: ${item.name}`); break;
+  case 'attack': openRoll(null,ds.id); sv=false; rer=false; break;
+  case 'ab-add': c.abilities.push({name:'',text:''}); break;
+  case 'ab-del': c.abilities.splice(i,1); break;
+  case 'dev-on': c.device.on=!c.device.on; break;
+  case 'dev-pow': c.device.powerUsed=clamp(c.device.powerUsed-n,0,c.device.powerMax); break;
+  case 'dev-anon': c.device.anonUsed=clamp(c.device.anonUsed-n,0,c.device.anonMax); break;
+  case 'dev-mask': c.device.anonUsed=0; log('Маскировка присутствия'); break;
+  case 'dev-exit': c.device.anonUsed=0; c.device.powerUsed=c.device.djinns.filter(j=>j.active).reduce((s,j)=>s+(+j.cost||0),0); log('Выход из системы: мощность и анонимность восстановлены'); break;
+  case 'djinn-add': c.device.djinns.push({name:'',bonus:4,cost:2,dc:16,text:'',active:false}); break;
+  case 'djinn-del': { const j=c.device.djinns[i]; if(j.active) c.device.powerUsed=Math.max(0,c.device.powerUsed-(+j.cost||0)); c.device.djinns.splice(i,1); break; }
+  case 'djinn-recall': { const j=c.device.djinns[i]; j.active=false; c.device.powerUsed=Math.max(0,c.device.powerUsed-(+j.cost||0)); log(`Джин «${j.name||'без имени'}» отозван`); break; }
+  case 'djinn-send': { const j=c.device.djinns[i], free=c.device.powerMax-c.device.powerUsed; if(free<+j.cost){toast('Не хватает мощности');sv=false;break} c.device.powerUsed+=+j.cost; j.active=true; const r=rnd(20); log(`Джин «${j.name||'без имени'}» отправлен: ${r+(+j.bonus)} (d20 ${r} ${sgn(+j.bonus)})`); break; }
+  case 'rep-add': c.rep.push({name:'',value:0}); break;
+  case 'rep-del': c.rep.splice(i,1); break;
+  case 'rep': c.rep[i].value=clamp(c.rep[i].value+n,-10,10); break;
+  case 'fame': c.fame=clamp(c.fame+n,0,10); break;
+  case 'hope': c.hope=clamp(c.hope+n*5,0,100); break;
+  case 'export': { const t=JSON.stringify(c); navigator.clipboard?.writeText(t).then(()=>toast('Лист скопирован'),()=>{const io=document.getElementById('io');io.style.display='block';io.value=t;io.select()}); sv=false; rer=false; break; }
+  case 'import': { const io=document.getElementById('io'); if(io.style.display!=='block'||!io.value.trim()){io.style.display='block';io.focus();sv=false;rer=false;break}
+    try{const o=normalize(JSON.parse(io.value));o.id=uid();o.updated=Date.now();chars[o.id]=o;cur=o.id;log('Лист импортирован')}catch(e){toast('Не похоже на лист агента');sv=false;rer=false} break; }
+  case 'del-char': remove(c.id); return;
+  case 'roll-open': openRoll(ds.k); sv=false; rer=false; break;
+  case 'r-close': closeRoll(); sv=false; rer=false; break;
+  case 'r-mod': R.mod=clamp(+R.mod+n,-20,20); renderSheet(); sv=false; rer=false; break;
+  case 'r-pow': R.power=clamp(R.power+n,0,c.device.powerMax-c.device.powerUsed); renderSheet(); sv=false; rer=false; break;
+  case 'r-attack': R.attack=!R.attack; if(R.attack&&R.skill!=='sho'&&R.skill!=='agi'&&R.skill!=='con') R.skill='sho'; renderSheet(); sv=false; rer=false; break;
+  case 'r-roll': doRoll(); sv=false; rer=false; break;
+  case 'r-boost': { const r=R.res; c.balance-=1; r.raw=r.raw.map(o=>({d:o.d,total:o.total+3})); r.total=r.raw.map(o=>o.total).join(' / '); r.parts.push(['Равновесие',3]); if(r.dc) r.win=r.raw[0].total>=r.dc; log(`+3 за равновесие → ${r.total}${r.dc?(r.win?', успех':', провал'):''}`); save(); renderSheet(); if(tab==='agent') render(); return; }
+  case 'r-token': { const r=R.res; c.tokens-=1; r.auto=true; r.win=true; log(`Жетон профессионализма: ${SK[R.skill].n} — автоуспех`); save(); renderSheet(); if(tab==='agent') render(); return; }
+ }
+ if(sv) save(); if(rer) render();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled) return;act(b.dataset.act,b.dataset,b)});
+document.addEventListener('input',e=>{
+ const t=e.target;
+ if(t.dataset.rbind){ R[t.dataset.rbind]=t.type==='number'?t.value:t.value; if(t.tagName==='SELECT'){ if(t.dataset.rbind==='light'||t.dataset.rbind==='cover'||t.dataset.rbind==='aim') R[t.dataset.rbind]=+t.value; R.res=null; renderSheet(); } return; }
+ if(!t.dataset.bind) return;
+ let v=t.value; if('num' in t.dataset) v=+v||0;
+ setPath(C(),t.dataset.bind,v); save();
+ if('rerenderName' in t.dataset){ const o=document.querySelector(`#charSel option[value="${cur}"]`); if(o) o.textContent=v||'Без имени'; }
+});
+document.addEventListener('change',e=>{
+ const t=e.target;
+ if(t.id==='charSel'){ if(t.value==='__new'){const c=newChar();chars[c.id]=c;cur=c.id;tab='dossier';save()} else cur=t.value; lsSave(); closeRoll(); render(); return; }
+ if(t.dataset.bind&&'rerender' in t.dataset) render();
+});
+
+/* ---------- boot ---------- */
+lsLoad(); ensureChar(); render(); initDb();
+</script>
+</body>
+</html>
